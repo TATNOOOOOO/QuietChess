@@ -1,0 +1,100 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>quietchess</title>
+<style>
+:root{--bg:#f6f4ef;--tx:#33342e;--cd:#fff;--ln:#e6e2d8;--mu:#7d7d70;--ac:#8c6d46;--li:#efe4d3;--da:#b79a7a;--rd:#c0443a;font-family:"Yu Gothic","游ゴシック",system-ui,sans-serif;font-size:16px}
+@media(prefers-color-scheme:dark){:root{--bg:#1d1d1a;--tx:#ecebe4;--cd:#272723;--ln:#3a3a34;--mu:#a5a597;--rd:#e0766c}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--tx);line-height:1.7;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{padding:20px 20px 8px;max-width:1000px;margin:0 auto}
+.logo{font:600 28px Georgia,"Yu Mincho",serif;letter-spacing:.01em}.tag{color:var(--mu);font-size:14px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+main{max-width:1000px;margin:0 auto;padding:12px 20px 40px}
+button,select,input{font:inherit;color:inherit}
+button{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border:1px solid var(--ln);background:var(--cd);border-radius:12px;cursor:pointer;transition:transform .12s,border-color .2s}
+button:active{transform:scale(.96)}button:hover{border-color:var(--ac)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+button.on{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac) inset}button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+button.dg{color:var(--rd)}button:disabled{opacity:.45;pointer-events:none}
+.card{background:var(--cd);border:1px solid var(--ln);border-radius:24px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin-bottom:16px}
+h1{font-size:26px;font-weight:500;margin:8px 0 4px}.sub{color:var(--mu);font-size:15px;margin:0 0 20px}.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--ac)}
+.lv{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+.lv button{flex-direction:column;align-items:flex-start;gap:0;height:auto;padding:12px 14px;border-radius:16px;text-align:left}.lv b{font:500 18px Georgia,serif}.lv small{color:var(--mu)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0}label{display:flex;gap:8px;align-items:center;color:var(--mu);font-size:15px}
+input[type=number],select{min-height:44px;padding:0 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);width:110px}select{width:auto}
+.game{display:grid;grid-template-columns:minmax(0,560px) 1fr;gap:24px;align-items:start}@media(max-width:820px){.game{grid-template-columns:1fr}}
+.bw{width:100%;max-width:min(560px,calc(100vh - 96px));max-width:min(560px,calc(100dvh - 96px));margin:0 auto;display:grid;grid-template-columns:22px 1fr;grid-template-rows:auto 22px;gap:4px}
+.rk{display:grid;grid-template-rows:repeat(8,1fr);font-size:13px;color:var(--mu);text-align:center}.rk span,.fl span{display:flex;align-items:center;justify-content:center}
+.fl{grid-column:2;display:grid;grid-template-columns:repeat(8,1fr);font-size:13px;color:var(--mu)}
+.bd{display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);aspect-ratio:1;border-radius:6px;overflow:hidden;container-type:inline-size;border:3px solid var(--cd);box-shadow:0 1px 6px rgba(0,0,0,.08);user-select:none}
+.sq{aspect-ratio:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;background:var(--li);cursor:pointer}.sq.d{background:var(--da)}
+.sq.ls::before{content:"";position:absolute;inset:0;background:rgba(255,224,120,.45)}.sq.sel::before{content:"";position:absolute;inset:0;background:rgba(255,224,120,.7)}
+.sq.ck::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(192,68,58,.7),transparent 70%)}
+.sq.tg::after{content:"";position:absolute;width:28%;height:28%;border-radius:50%;background:rgba(0,0,0,.2)}.sq.tg.cp::after{width:88%;height:88%;background:none;border:4px solid rgba(0,0,0,.2)}
+.pc{position:relative;z-index:1;font-size:min(9.2vw,52px);font-size:9.4cqw;line-height:1;width:100%;text-align:center;font-family:"Segoe UI Symbol","Noto Sans Symbols 2","Apple Symbols",sans-serif}
+.pc.w{color:#fbfaf6;-webkit-text-stroke:1.2px #33342e}.pc.b{color:#2b2c27;-webkit-text-stroke:1px #111}.pc.an{transition:transform .22s ease-out}
+.st{font-size:18px;margin:0 0 12px}.mv{max-height:240px;overflow:auto;margin:12px 0;padding:0;list-style:none;display:grid;grid-template-columns:36px 1fr 1fr;font-size:15px}.mv i{color:var(--mu);font-style:normal}
+dialog{border:1px solid var(--ln);border-radius:24px;background:var(--cd);color:var(--tx);padding:24px;max-width:360px;position:relative}dialog::backdrop{background:rgba(0,0,0,.35)}
+.x{position:absolute;top:10px;right:10px;width:36px;height:36px;min-height:0;padding:0;border-radius:50%;justify-content:center}
+.pr{display:flex;gap:8px}.pr button{font-size:30px;width:56px;justify-content:center;padding:0}
+@media(max-width:820px) and (orientation:landscape) and (min-width:560px){.game{grid-template-columns:auto minmax(0,1fr);gap:16px}.bw{margin:0;width:calc(100vh - 96px);width:calc(100dvh - 96px)}.mv{max-height:120px}.card{padding:16px}.lv{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){h1{font-size:22px}.card{padding:18px;border-radius:20px}.lv{grid-template-columns:repeat(2,1fr)}.row{gap:8px}.top{font-size:13px}.top>span:first-of-type{display:none}.top>span:nth-of-type(2){display:none}}
+.gl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:16px 20px;border-radius:20px}.gl small{color:var(--mu)}
+.bg{position:absolute;top:2px;right:2px;z-index:2;min-width:22px;height:22px;padding:0 3px;border-radius:11px;font-size:12px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+progress{height:10px;accent-color:var(--ac)}textarea{width:100%;height:150px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);color:var(--tx);padding:10px;font:inherit;font-size:14px}
+table.sm{width:100%;border-collapse:collapse;font-size:15px}.sm td,.sm th{padding:6px 4px;border-bottom:1px solid var(--ln);text-align:right}.sm td:first-child,.sm th:first-child{text-align:left}.sm th{font-weight:400;color:var(--mu)}
+.dot{display:inline-flex;min-width:22px;height:22px;border-radius:11px;color:#fff;font-size:12px;font-weight:700;align-items:center;justify-content:center;margin-right:8px;padding:0 3px}
+.rmv{display:grid;grid-template-columns:34px 1fr 1fr;max-height:220px;overflow:auto;font-size:15px;margin:10px 0}.rmv span{cursor:pointer;padding:2px 6px;border-radius:8px}.rmv span.on{background:var(--li)}.rmv i{font-style:normal;color:var(--mu)}
+input[type=range]{flex:1;min-width:120px;accent-color:var(--ac)}
+.pc{display:flex;align-items:center;justify-content:center;height:100%}
+.pc svg{width:92%;height:92%;display:block;overflow:visible;filter:drop-shadow(0 1.5px 1.5px rgba(0,0,0,.32))}
+.pc svg *{fill:var(--pf);stroke:var(--ps);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}.pc svg .d{fill:none;stroke:var(--pd);stroke-width:1.4}.pc svg .e{fill:var(--pd);stroke:none}
+.pc.w{--pf:#fcfbf7;--ps:#33342e;--pd:#33342e;color:inherit;-webkit-text-stroke:0}.pc.b{--pf:#2c2e29;--ps:#2c2e29;--pd:#f1efe6;color:inherit;-webkit-text-stroke:0}
+.pr button{width:64px;height:64px}.pr .pc{width:48px;height:48px}
+.bd{touch-action:none}.pc{cursor:grab}.gh{position:fixed;z-index:60;pointer-events:none;line-height:1;text-align:center;filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:4px;padding:28px 14px 16px;border-right:1px solid var(--ln);background:var(--bg)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 10px 4px}.brand .k{font-size:30px;line-height:1}.side .tag{padding:0 10px 18px}
+.grp{font-size:11px;letter-spacing:.2em;color:var(--mu);padding:8px 10px}
+.nv{width:100%;justify-content:flex-start;border-color:transparent;background:transparent;color:var(--mu);border-radius:14px}.nv:hover{color:var(--tx);border-color:var(--ln)}.nv.on{color:var(--tx);border-color:var(--ac);background:var(--cd);box-shadow:none}
+.nv svg{flex:none}.sp{flex:1}.me{padding:14px 10px 0;border-top:1px solid var(--ln);font-size:13px;color:var(--mu);margin-top:12px}.me b{display:block;color:var(--tx);font-weight:500;font-size:14px}
+.mainc{min-width:0}.top{display:flex;align-items:center;gap:10px;padding:14px 24px;border-bottom:1px solid var(--ln);color:var(--mu);font-size:14px;min-height:64px}#crumb{color:var(--tx)}.mbtn{display:none;padding:0 10px}
+.cards{display:grid;gap:12px;margin-top:16px}.mc{width:100%;justify-content:flex-start;height:auto;padding:18px 20px;border-radius:20px;text-align:left;gap:16px}.mc svg{width:28px;height:28px;color:var(--ac);flex:none}.mc b{display:block;font-weight:500;font-size:17px}.mc small{color:var(--mu);font-size:14px}
+.seg{display:inline-flex;gap:4px;padding:4px;background:var(--li);border-radius:14px;margin-bottom:16px}.seg button{border-color:transparent;background:transparent;min-height:40px}.seg button.on{background:var(--cd);box-shadow:none}
+main{max-width:1040px;padding:28px 28px 48px}
+@media(max-width:820px){.app{grid-template-columns:1fr}.side{position:fixed;inset:0 auto 0 0;width:270px;z-index:20;transform:translateX(-105%);transition:transform .2s}.side.open{transform:none;box-shadow:0 0 0 100vmax rgba(0,0,0,.3)}.mbtn{display:inline-flex}main{padding:20px 16px 40px}.top{padding:10px 14px}}
+</style></head><body>
+<div class="app"><aside class="side"><div class="brand"><span class="k">♞</span><span class="logo">quietchess</span></div><div class="tag">ひと呼吸、一手ずつ。</div><div class="grp">PLAY &amp; LEARN</div>
+<button class="nv" data-tab="home" data-ic="home">ホーム</button><button class="nv" data-tab="train" data-ic="book">トレーニング</button><button class="nv" data-tab="ai" data-ic="swords">AI対局</button><button class="nv" data-tab="tact" data-ic="puzzle">タクティクス問題</button><button class="nv" data-tab="priv" data-ic="lock">プライベート対局</button><button class="nv" data-tab="map" data-ic="target">学習マップ</button><button class="nv" data-tab="rec" data-ic="history">対局の記録</button>
+<div class="sp"></div><button class="nv" data-tab="set" data-ic="sliders">カスタマイズ</button><div class="me"><b>あなたのスペース</b>この端末に自動保存</div></aside>
+<div class="mainc"><div class="top"><button class="mbtn" id="mb" data-ic="menu" aria-label="メニュー"></button><span>あなたのチェスクラブ</span><span>›</span><span id="crumb"></span><span class="sp"></span><button id="back" data-ic="play" hidden>進行中の対局へ</button></div>
+<main>
+<section id="p-home" class="pnl"><div class="eyebrow">A LITTLE BETTER, EVERY DAY</div><h1>チェスを、あなたのペースで。</h1><p class="sub">急がなくて大丈夫。遊び方を選んでください。</p>
+<div class="cards"><button class="mc" data-go="ai" data-ic="swords"><span><b>AI対局</b><small>6つの難易度で、自由に腕試し。</small></span></button><button class="mc" data-go="priv" data-ic="lock"><span><b>プライベート対局</b><small>一台で、ふたりで。(オンラインは準備中)</small></span></button><button class="mc" data-go="set" data-ic="sliders"><span><b>カスタマイズ</b><small>盤面の色や効果音を、好みに合わせて。</small></span></button></div></section>
+<section id="p-soon" class="pnl" hidden><div class="eyebrow">COMING SOON</div><h1 id="sn"></h1><p class="sub" id="sd"></p><div class="card">この機能は、次の段階で追加します。</div></section>
+<section id="p-ai" class="pnl"><div class="eyebrow">A CHALLENGE THAT FITS YOU</div><h1>今日は、どんな一局にする？</h1><p class="sub">相手の強さを選んで、ゆっくり始めましょう。</p>
+<div class="card"><div class="row"><label>あなたの推定Elo <input type="number" id="elo" min="100" max="3000" step="10"></label><label>あなたの色 <select id="col"><option value="w">白</option><option value="b">黒</option><option value="r">ランダム</option></select></label></div>
+<div class="lv" id="lv"></div><div class="row" id="cu" hidden><label>相手のElo <input type="number" id="celo" min="100" max="3000" step="10" value="600"></label></div>
+<p class="sub" id="lvd"></p><button class="pri" id="go" data-ic="play">対局をはじめる</button>
+<p class="sub" style="margin-top:14px">棋力チェックは準備中です。それまでは推定Eloを手入力してください。Elo設定による強さは目安で、実力差の保証ではありません。</p></div></section>
+<section id="p-priv" class="pnl" hidden><div class="eyebrow">GOOD COMPANY, GOOD GAMES</div><h1>友だちと、盤を囲もう。</h1><p class="sub">一台で交互に指す・一人で両側を指すモードが使えます。</p>
+<div class="seg"><button class="pt on" data-pt="local" data-ic="users">一台で対局・一人回し</button><button class="pt" data-pt="online" data-ic="lock">友だちとオンライン</button></div>
+<div class="card" id="pt-local"><p class="sub">交互に指します。持ち時間の設定は、次の段階で追加します。</p><button class="pri" id="golocal" data-ic="play">対局をはじめる</button></div>
+<div class="card" id="pt-online" hidden>オンライン対局は準備中です。サーバー(Firebase)の準備ができてから追加します。</div></section>
+<section id="p-rec" class="pnl" hidden><div class="eyebrow">EVERY GAME LEAVES SOMETHING</div><h1>一局の中に、次のヒント。</h1><p class="sub">保存した対局を、一手ずつ振り返りましょう。記録はこの端末に保存されます。</p><div class="row"><button id="impb" data-ic="plus">PGNを読み込んで分析</button></div><div id="gl"></div></section>
+<section id="p-rev" class="pnl" hidden><div class="row"><button id="rvb" data-ic="back">記録の一覧に戻る</button></div><h1 id="rvt"></h1>
+<div class="card" id="ld" hidden><p>全手を解析しています… <span id="lp">0%</span></p><progress id="pgb" max="1" value="0" style="width:100%"></progress></div>
+<div class="game"><div><div class="bw"><div class="rk" id="rrk"></div><div class="bd" id="rbd"></div><div class="fl" id="rfl"></div></div>
+<div class="row" style="justify-content:center"><button id="r0" data-ic="first" aria-label="最初へ"></button><button id="r1" data-ic="back" aria-label="一手戻る"></button><input type="range" id="rs" min="0" max="0" value="0"><button id="r2" data-ic="next" aria-label="一手進む"></button><button id="r3" data-ic="last" aria-label="最後へ"></button></div></div>
+<div><div class="card"><p class="st" id="rn"></p><p class="sub" style="margin:-6px 0 8px">盤の駒を動かして、変化手の評価を確認できます。</p><p id="cm" class="sub"></p><div id="sum"></div><div class="rmv" id="rmv"></div><div class="row"><button id="rvx" data-ic="back" hidden>元の棋譜に戻る</button><button id="rfp" data-ic="flip">盤を反転</button><button id="rdl" data-ic="dl">PGNをダウンロード</button></div></div></div></div></section>
+<section id="p-set" class="pnl" hidden><div class="eyebrow">MAKE YOURSELF AT HOME</div><h1>心地いい盤面を、あなたに。</h1><p class="sub">設定はこの端末に自動保存されます。</p>
+<div class="card"><b>色のプリセット</b><p class="sub">盤面とボタンなどのアクセント色が、一緒に変わります。</p><div class="lv" id="th"></div>
+<div class="row"><label><input type="checkbox" id="snd"> 効果音</label><label>音量 <input type="range" id="vol" min="0" max="1" step=".05"></label></div>
+<p class="sub">効果音ファイルは sounds/ フォルダに move / capture / check / end / click のどれかの名前(mp3・ogg・wav)で置くと自動で使われます。無い間は内蔵の合成音です。</p></div></section>
+<section id="p-game" class="pnl" hidden><div class="game"><div><div class="bw"><div class="rk" id="rk"></div><div class="bd" id="bd"></div><div class="fl" id="fl"></div></div></div>
+<div><div class="card"><p class="st" id="st"></p><div class="row"><button id="undo" data-ic="undo">待った</button><button id="flip" data-ic="flip">盤を反転</button><button id="draw" data-ic="eq">引き分けを提案</button><button id="res" data-ic="flag" class="dg">投了</button></div>
+<ol class="mv" id="mv"></ol><button id="new" data-ic="plus">新しい対局</button></div></div></div></section>
+</main></div></div>
+<dialog id="cf"><button class="x" data-ic="x" aria-label="閉じる"></button><p id="cft"></p><div class="row"><button id="cfo" data-ownsfx>OK</button></div></dialog>
+<dialog id="imp"><button class="x" data-ic="x" aria-label="閉じる"></button><p>PGNを貼り付けるか、ファイルを選んでください</p><textarea id="pt" placeholder="1. e4 e5 2. Nf3 ..."></textarea><div class="row"><input type="file" id="pf" accept=".pgn,.txt"></div><p id="ie" style="color:var(--rd)"></p><div class="row"><button class="pri" id="pgo" data-ic="play">読み込む</button></div></dialog>
+<dialog id="pm"><button class="x" data-ic="x" aria-label="閉じる"></button><p>成り先を選んでください</p><div class="pr" id="pp"></div></dialog>
+<script src="engine.js"></script><script src="ai.js"></script><script src="pgn.js"></script><script src="analyze.js"></script><script src="app.js"></script></body></html>
