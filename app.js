@@ -88,10 +88,10 @@ $('#draw').onclick=()=>ask('引き分けを提案し、合意しますか?(一�
 $('#new').onclick=()=>{const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
 /* panels */
 const TT={home:'ホーム',train:'トレーニング',ai:'AI対局',tact:'タクティクス問題',priv:'プライベート対局',map:'学習マップ',rec:'対局の記録',set:'カスタマイズ'};
-const SOON={train:'基本的な駒損の確認と、コーチによる一手ごとの解説を用意します。',tact:'難度の範囲を決めて、問題数・時間・ライフで解くセッションを用意します。',map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
-function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':id;
+const SOON={train:'基本的な駒損の確認と、コーチによる一手ごとの解説を用意します。',map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
+function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':(id==='pz'||id==='sr')?'tact':id;if(ss&&!ss.end&&id!=='pz'){clearInterval(ss.tm);ss.end=true;}
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
- if(id==='rec')listUI();$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
+ if(id==='rec')listUI();if(id==='tact')tactUI();$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
 $$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
@@ -105,7 +105,7 @@ $('#golocal').onclick=()=>newGame('local',null,0);
 $('#th').innerHTML=TH.map((t,i)=>`<button data-t="${i}"><span style="display:inline-block;width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,${t[1]} 50%,${t[2]} 50%)"></span>${t[0]}</button>`).join('');
 function thUI(){$$('#th button').forEach(b=>b.classList.toggle('on',+b.dataset.t===S.th));theme();}
 $('#th').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.th=+b.dataset.t;save();thUI();if(g)render();};
-$('#snd').checked=!!S.snd;$('#snd').onchange=()=>{S.snd=$('#snd').checked?1:0;save();};$('#vol').value=S.vol;$('#vol').oninput=()=>{S.vol=+$('#vol').value;save();};
+function sw(id,v){$(id).setAttribute('aria-checked',v?'true':'false');}sw('#snd',S.snd);$('#snd').onclick=()=>{S.snd=S.snd?0:1;sw('#snd',S.snd);save();};$('#vol').value=S.vol;$('#vol').oninput=()=>{S.vol=+$('#vol').value;save();};
 $('#vol').onchange=()=>play('move');
 /* records & review */
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -161,5 +161,71 @@ $('#rmv').onclick=e=>{const t=e.target.closest('span');if(t)rgo(+t.dataset.i);};
 $('#rvb').onclick=()=>{rv=null;if(vw){vw.terminate();vw=ve=null;}show('rec');};
 $('#rdl').onclick=()=>{const r=rv.r,u=URL.createObjectURL(new Blob([QCPGN.toPGN({sans:r.sans,result:r.res,white:r.white,black:r.black,date:r.date})],{type:'application/x-chess-pgn'})),l=document.createElement('a');l.href=u;l.download='quietchess_'+r.date+'.pgn';l.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
 document.addEventListener('keydown',e=>{if(!rv||$('#p-rev').hidden)return;if(e.key==='ArrowLeft')rgo(rv.i-1);if(e.key==='ArrowRight')rgo(rv.i+1);});
+/* tactics */
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),today=()=>ymd(new Date());
+S.tr=S.tr||{lo:340,hi:740,mode:'life',limit:3,order:'asc'};S.daily=S.daily||{};if(S.tr.retry===undefined)S.tr.retry=false;const HK='qct1';let HS=[];try{HS=JSON.parse(localStorage.getItem(HK)||'[]')}catch(e){}const saveT=()=>{try{localStorage.setItem(HK,JSON.stringify(HS.slice(0,30)))}catch(e){}};S.dOff=S.dOff||0;
+let PZ=null,ss=null,ctx='',gback='',tp=null;
+const gotPZ=raw=>{PZ=QCPZ.prep(raw);tactUI();};
+setTimeout(()=>{if(window.__PZ)gotPZ(window.__PZ);else fetch('puzzles.json').then(r=>r.json()).then(gotPZ).catch(()=>{});},0);
+const LIM={count:[5,10,20],time:[3,5,10],life:[1,3,5]},LU={count:'問',time:'分',life:'ライフ'};
+function streak(){let n=0,d=new Date();const ok=x=>S.daily[ymd(x)]&&S.daily[ymd(x)].ok;if(!ok(d))d.setDate(d.getDate()-1);while(ok(d)){n++;d.setDate(d.getDate()-1);}return n;}
+function tactUI(){const o=S.tr;$('#tlo').value=o.lo;$('#thi').value=o.hi;$$('#tmode button').forEach(b=>b.classList.toggle('on',b.dataset.m===o.mode));
+  if(!LIM[o.mode].includes(o.limit))o.limit=LIM[o.mode][1];$('#tlim').innerHTML=LIM[o.mode].map(v=>`<option value="${v}" ${v===o.limit?'selected':''}>${v}${LU[o.mode]}</option>`).join('');$('#tord').value=o.order;
+  $('#tcnt').textContent=PZ?`この範囲の問題:${QCPZ.inRange(PZ,o.lo,o.hi).length.toLocaleString()}問`:'問題データ(puzzles.json)を読み込めません。index.html と同じフォルダに置いてください。';
+  const d=S.daily[today()],tg=S.elo+S.dOff;$('#dinfo').textContent=(d?(d.ok?'今日の一問、正解しました。':'今日の一問は、不正解でした。'):'あなたの棋力に合わせて、毎日ひとつ。')+' 目標難度 '+tg+' QC。';
+  $('#dstreak').textContent='連続正解 '+streak()+'日';$('#dgo').lastChild.textContent=d?'今日の一問を見直す':'今日の一問を解く';$('#dgo').disabled=$('#tgo').disabled=!PZ;sw('#tretry',o.retry);
+  const MN={count:'問題数',time:'制限時間',life:'ライフ'};$('#thl').innerHTML=HS.length?HS.map(x=>{const ok=x.res.filter(r=>r.ok).length,d=new Date(x.t);return `<div class="gl" style="padding:10px 0;border-bottom:1px solid var(--ln)"><div><b>${ok} / ${x.res.length} 正解</b><br><small>${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${MN[x.o.mode]} · ${x.o.lo}〜${x.o.hi} QC${x.o.retry?' · リトライあり':''}</small></div><span class="sp"></span><button data-h="${x.id}" data-ic="play">振り返る</button></div>`;}).join(''):'<p class="sub">まだセッションの記録がありません。</p>';
+  $$('#thl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));$('#thc').hidden=!HS.length;}
+$('#tretry').onclick=()=>{S.tr.retry=!S.tr.retry;sw('#tretry',S.tr.retry);save();};
+$('#thl').onclick=e=>{const b=e.target.closest('button');if(b)openHist(+b.dataset.h);};
+$('#thc').onclick=()=>ask('セッションの履歴をすべて消しますか?(元に戻せません)',()=>{HS=[];saveT();tactUI();});
+function openHist(id){const h=HS.find(x=>x.id===id);if(!h)return;const res=h.res.map(x=>({p:(PZ&&PZ.find(q=>q.id===x.id))||{id:x.id,q:x.q,r:0,fen:'',mv:[]},ok:x.ok,retry:x.retry,skip:x.skip,ms:x.ms}));ss={o:h.o,list:[],idx:0,ok:res.filter(r=>r.ok).length,lives:0,res,end:true,why:h.why,hist:1};ctx='sess';gback='sess';show('sr');srUI();}
+$('#tlo').onchange=$('#thi').onchange=()=>{S.tr.lo=+$('#tlo').value||60;S.tr.hi=+$('#thi').value||2400;save();tactUI();};
+$('#tpre').onclick=e=>{const b=e.target.closest('button');if(!b)return;const x=S.elo,r={easy:[x-400,x],mid:[x-200,x+200],hard:[x,x+400]}[b.dataset.q];S.tr.lo=Math.max(60,r[0]);S.tr.hi=r[1];save();tactUI();};
+$('#tmode').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tr.mode=b.dataset.m;S.tr.limit=LIM[b.dataset.m][1];save();tactUI();};
+$('#tlim').onchange=()=>{S.tr.limit=+$('#tlim').value;save();};$('#tord').onchange=()=>{S.tr.order=$('#tord').value;save();};
+$('#doff').innerHTML=[-200,-100,0,100,200,300].map(v=>`<option value="${v}">${v===0?'±0(棋力どおり)':(v>0?'+':'')+v}</option>`).join('');$('#doff').value=S.dOff;$('#doff').onchange=()=>{S.dOff=+$('#doff').value;save();};
+function pzPaint(anim){if(!tp)return;const s=tp.s,tg=tp.sel>=0?E.legal(s).filter(m=>m.from===tp.sel&&(!tp.guide||tp.hintTo<0||m.to===tp.hintTo)):[];
+  $('#tbd').innerHTML=bhtml(s,tp.flip,tp.last,null,tp.sel,tg);$('#trk').innerHTML=(tp.flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(x=>`<span>${x}</span>`).join('');$('#tfl').innerHTML=(tp.flip?'hgfedcba':'abcdefgh').split('').map(x=>`<span>${x}</span>`).join('');
+  if(anim)animMove($('#tbd'),tp.flip,anim.m,false);}
+function pzBtns(){const d=tp&&tp.state==='done';$('#pzback').hidden=!(ctx==='guide'||ctx==='daily');$('#pzg').hidden=!(ctx==='daily'&&d&&!tp.guide);$('#pze').hidden=ctx!=='sess';$('#pzs').hidden=!(ctx==='sess'&&tp&&tp.tries>0&&tp.state==='play');}
+function hud(){if(ctx!=='sess'||!ss){$('#hud').textContent=ctx==='daily'?'DAILY PUZZLE · '+today():'正解の手順を確認';return;}const o=ss.o;
+  $('#hud').innerHTML=(o.mode==='count'?`問題 ${Math.min(ss.idx+1,o.limit)} / ${o.limit}`:o.mode==='time'?`⏱ ${Math.floor(ss.left/60)}:${String(ss.left%60).padStart(2,'0')}`:`ライフ <span class="lv2">${'♥'.repeat(Math.max(0,ss.lives))}</span>`)+` <span>✓ ${ss.ok}</span>`;}
+function pzLoad(p,guide){const f=E.fromFEN(p.fen),tok=tp={p,s:f,mi:0,flip:f.t==='w',sel:-1,last:null,state:'wait',guide,t0:0,hintTo:-1};
+  $('#pzt').textContent='準備しています…';$('#pzm').textContent='';$('#pzi').textContent=`難度 ${p.q} QC(Lichess問題レート ${p.r}) · 出典 ${p.id}`;pzPaint();pzBtns();hud();
+  setTimeout(()=>{if(tp!==tok)return;pzApply(E.fromUci(tok.s,p.mv[0]),true);tok.mi=1;tok.state='play';tok.t0=Date.now();$('#pzt').textContent=(tok.s.t==='w'?'白':'黒')+'の番 · よい継続を見つけよう';if(guide)pzHint();},500);}
+function pzApply(m,anim){const s=tp.s,cap=s.b[m.to]!=='.'||m.fl==='ep';tp.s=E.make(s,m);tp.last=m;tp.sel=-1;tp.hintTo=-1;pzPaint(anim?{m,rev:false}:null);play(cap?'capture':'move');}
+function pzHint(){const m=E.fromUci(tp.s,tp.p.mv[tp.mi]);tp.sel=m.from;tp.hintTo=m.to;pzPaint();$('#pzm').textContent='光っているマスの駒を、示された場所へ動かしてみましょう。';}
+function pzMove(m,na){const p=tp.p,tok=tp,ns=E.make(tp.s,m);let ok=E.uci(m)===p.mv[tp.mi];if(!ok&&!tp.guide&&tp.mi===p.mv.length-1&&E.status(ns)==='checkmate')ok=true;
+  if(!ok){if(tp.guide){$('#pzm').textContent='その手ではありません。光っているマスの手を指してみましょう。';pzHint();return;}if(ss&&ctx==='sess'&&ss.o.retry){const ps=tp.s,pl=tp.last;tp.tries=(tp.tries||0)+1;tp.state='wait';pzApply(m,!na);play('warn');$('#pzm').textContent='惜しい。元に戻します。';pzBtns();
+    setTimeout(()=>{if(tp!==tok)return;tp.s=ps;tp.last=pl;tp.sel=-1;pzPaint({m,rev:true});tp.state='play';$('#pzm').textContent='もう一度考えてみましょう。分からなければスキップできます。';pzBtns();},800);return;}
+  tp.state='fail';pzDone(false);return;}
+  pzApply(m,!na);tp.mi++;if(tp.mi>=p.mv.length)return pzDone(true);tp.state='wait';
+  setTimeout(()=>{if(tp!==tok)return;pzApply(E.fromUci(tp.s,p.mv[tp.mi]),true);tp.mi++;if(tp.mi>=p.mv.length)return pzDone(true);tp.state='play';if(tp.guide)pzHint();},450);}
+function pzDone(ok){tp.state='done';if(tp.guide){$('#pzm').textContent='手順を確認できました。';pzBtns();play('end');return;}
+  tp.ok=ok;play(ok?'end':'warn');$('#pzm').textContent=ok?(tp.tries>0?'リトライで正解です。':'正解です。'):tp.skipped?'スキップしました。':'不正解です。';
+  if(ctx==='sess'){sRec(ok);return;}if(ctx==='daily'){S.daily[today()]={ok,id:tp.p.id,q:tp.p.q};save();}pzBtns();}
+attach($('#tbd'),{ok:()=>tp&&tp.state==='play',st:()=>tp.s,get sel(){return tp.sel},set sel(v){tp.sel=v},paint:()=>pzPaint(),move:(m,na)=>pzMove(m,na)});
+function dStart(){const t=today(),st=S.daily[t],p=(st&&PZ.find(x=>x.id===st.id))||QCPZ.daily(PZ,S.elo+S.dOff,t);ctx=st?'guide':'daily';gback='daily';show('pz');pzLoad(p,!!st);}
+$('#dgo').onclick=dStart;
+function sStart(op){const o=op||S.tr;const pool=QCPZ.inRange(PZ,o.lo,o.hi);if(!pool.length){$('#tcnt').textContent='この範囲に問題がありません。範囲を広げてください。';return;}
+  const list=QCPZ.sample(pool,o.mode==='count'?o.limit:60);if(o.order==='asc')list.sort((a,b)=>a.q-b.q);
+  const me=ss={o:{...o},list,idx:0,ok:0,lives:o.mode==='life'?o.limit:0,res:[],t0:Date.now(),left:o.mode==='time'?o.limit*60:0,end:false};ctx='sess';show('pz');
+  if(o.mode==='time')me.tm=setInterval(()=>{me.left=Math.max(0,o.limit*60-Math.floor((Date.now()-me.t0)/1000));hud();if(me.left<=0)sEnd('時間切れ');},250);sNext();}
+function sNext(){const p=ss.list[ss.idx];if(!p)return sEnd('全問終了');pzLoad(p,false);}
+function sRec(ok){const ms=Date.now()-tp.t0,me=ss;me.res.push({p:tp.p,ok,ms,retry:ok&&tp.tries>0,skip:!!tp.skipped});if(ok)me.ok++;else if(me.o.mode==='life')me.lives--;me.idx++;hud();
+  const end=me.o.mode==='life'&&me.lives<=0?'ライフがなくなりました':me.o.mode==='count'&&me.idx>=me.o.limit?'全問終了':null;
+  setTimeout(()=>{if(ss!==me||me.end)return;end?sEnd(end):sNext();},ok?600:1000);}
+function sEnd(why){if(!ss||ss.end)return;ss.end=true;clearInterval(ss.tm);ss.why=why;tp=null;if(ss.res.length&&!ss.hist){ss.hist=1;HS.unshift({id:Date.now(),t:Date.now(),o:ss.o,why,res:ss.res.map(x=>({id:x.p.id,q:x.p.q,ok:x.ok,retry:!!x.retry,skip:!!x.skip,ms:x.ms}))});saveT();}show('sr');srUI();}
+function srUI(){const r=ss.res,n=r.length,ok=r.filter(x=>x.ok).length,avg=n?r.reduce((s,x)=>s+x.ms,0)/n/1000:0;
+  $('#srh').innerHTML=`<div class="eyebrow">SESSION REVIEW</div><div style="font:500 44px Georgia,serif">${ok}<span style="font-size:20px;color:var(--mu)"> / ${n} 正解</span></div><p class="sub">${esc(ss.why)} · 正答率 ${n?Math.round(ok/n*100):0}% · 平均 ${avg.toFixed(1)}秒${r.some(x=>x.retry)?' · リトライ正解 '+r.filter(x=>x.retry).length:''} · 難度 ${ss.o.lo}〜${ss.o.hi} QC</p>`;
+  const IC2=x=>x.ok?(x.retry?['↻','#b8964a','リトライで正解']:['✓','#6a9a4a','正解']):(x.skip?['»','#8a8a7e','スキップ']:['✕','#c0443a','不正解']);
+  $('#srl').innerHTML=r.map((x,i)=>{const c=IC2(x);return `<div class="card gl"><span class="dot" style="background:${c[1]}">${c[0]}</span><div><b>問題 ${i+1} · ${c[2]}</b><br><small>難度 ${x.p.q} QC · ${(x.ms/1000).toFixed(1)}秒</small></div><span class="sp"></span>${x.p.fen?`<button data-g="${i}" data-ic="play">正解を確認</button>`:''}</div>`;}).join('')||'<div class="card">解いた問題がありません。</div>';
+  $$('#srl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));}
+$('#tgo').onclick=()=>sStart();$('#srag').onclick=()=>sStart(ss.o);$('#pzs').onclick=()=>{if(!tp||tp.state!=='play')return;tp.skipped=true;tp.state='fail';pzDone(false);};$('#srback').onclick=()=>show('tact');$('#pze').onclick=()=>sEnd('途中で終了');
+$('#srl').onclick=e=>{const b=e.target.closest('button');if(!b)return;ctx='guide';gback='sess';show('pz');pzLoad(ss.res[+b.dataset.g].p,true);};
+$('#pzg').onclick=()=>{const p=tp.p;ctx='guide';gback='daily';pzLoad(p,true);};
+$('#pzback').onclick=()=>{const c=ctx;tp=null;if(c==='guide'&&gback==='sess'){ctx='sess';show('sr');}else show('tact');};
+window._qc={get tp(){return tp},get ss(){return ss}};
 thUI();lvUI();show('home');
 })();
