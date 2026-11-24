@@ -49,6 +49,7 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--ac)}
 .pc.w{--pf:#fcfbf7;--ps:#33342e;--pd:#33342e;color:inherit;-webkit-text-stroke:0}.pc.b{--pf:#2c2e29;--ps:#2c2e29;--pd:#f1efe6;color:inherit;-webkit-text-stroke:0}
 .pr button{width:64px;height:64px}.pr .pc{width:48px;height:48px}
 .bd{touch-action:none}.pc{cursor:grab}.gh{position:fixed;z-index:60;pointer-events:none;line-height:1;text-align:center;filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
+.ckb{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.big{font:500 64px Georgia,serif;line-height:1.1}.big small{font:500 20px Georgia,serif;color:var(--mu)}
 .h2{font-size:22px;font-weight:500;margin:4px 0 8px}.lv2{color:var(--rd);letter-spacing:.1em}#hud{display:flex;gap:18px;align-items:center;font-size:18px}
 .sw{position:relative;width:48px;height:28px;min-height:0;padding:0;border-radius:14px;background:var(--ln);border:1px solid var(--ln);flex:none;transition:background .2s,border-color .2s}
 .sw::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
@@ -80,7 +81,7 @@ main{max-width:1040px;padding:28px 28px 48px}
 <div class="card"><div class="row"><label>あなたの推定Elo <input type="number" id="elo" min="100" max="3000" step="10"></label><label>あなたの色 <select id="col"><option value="w">白</option><option value="b">黒</option><option value="r">ランダム</option></select></label></div>
 <div class="lv" id="lv"></div><div class="row" id="cu" hidden><label>相手のElo <input type="number" id="celo" min="100" max="3000" step="10" value="600"></label></div>
 <p class="sub" id="lvd"></p><button class="pri" id="go" data-ic="play">対局をはじめる</button>
-<p class="sub" style="margin-top:14px">棋力チェックは準備中です。それまでは推定Eloを手入力してください。Elo設定による強さは目安で、実力差の保証ではありません。</p></div></section>
+<p class="sub" style="margin-top:14px">棋力チェックは準備中です。それまでは推定Eloを手入力してください。Elo設定による強さは目安で、実力差の保証ではありません。</p><button data-go="chk" data-ic="target">棋力チェックをする</button></div></section>
 <section id="p-priv" class="pnl" hidden><div class="eyebrow">GOOD COMPANY, GOOD GAMES</div><h1>友だちと、盤を囲もう。</h1><p class="sub">一台で交互に指す・一人で両側を指すモードが使えます。</p>
 <div class="seg"><button class="pt on" data-pt="local" data-ic="users">一台で対局・一人回し</button><button class="pt" data-pt="online" data-ic="lock">友だちとオンライン</button></div>
 <div class="card" id="pt-local"><p class="sub">交互に指します。持ち時間の設定は、次の段階で追加します。</p><button class="pri" id="golocal" data-ic="play">対局をはじめる</button></div>
@@ -102,15 +103,16 @@ main{max-width:1040px;padding:28px 28px 48px}
 <div class="card"><div class="row" style="margin-top:0"><b>最近のセッション</b><span class="sp"></span><button class="dg" id="thc" data-ic="trash">履歴を消去</button></div><div id="thl"></div></div></section>
 <section id="p-pz" class="pnl" hidden><div class="card" id="hud" style="padding:14px 20px"></div>
 <div class="game"><div><div class="bw"><div class="rk" id="trk"></div><div class="bd" id="tbd"></div><div class="fl" id="tfl"></div></div></div>
-<div><div class="card"><p class="st" id="pzt"></p><p class="sub" id="pzm"></p><p class="sub" id="pzi"></p><div class="row"><button id="pzg" data-ic="play" hidden>正解を確認</button><button id="pzback" data-ic="back" hidden>戻る</button><button id="pzs" data-ic="next" hidden>この問題をスキップ</button><button id="pze" data-ic="x" hidden>ここで終える</button></div></div></div></div></section>
+<div><div class="card"><p class="st" id="pzt"></p><p class="sub" id="pzm"></p><p class="sub" id="pzi"></p><div class="row"><button id="pzg" data-ic="play" hidden>正解を確認</button><button id="pzback" data-ic="back" hidden>戻る</button><button id="pzs" data-ic="next" hidden>この問題をスキップ</button><button id="pzq" data-ic="next" hidden>わからない・解答を見る</button><button id="pzn" data-ic="next" hidden>次のクイズ</button><button id="pzx" class="dg" data-ic="x" hidden>測定を取り消す</button><button id="pze" data-ic="x" hidden>ここで終える</button></div></div></div></div></section>
 <section id="p-sr" class="pnl" hidden><div class="card" id="srh"></div><div class="row"><button class="pri" id="srag" data-ic="play">同じ設定でもう一度</button><button id="srback" data-ic="back">タクティクス問題に戻る</button></div><div id="srl"></div></section>
+<section id="p-chk" class="pnl" hidden><div class="eyebrow">YOUR QUIET CHESS RATING</div><h1>今の自分を、知るところから。</h1><p class="sub">問題で出発点を探し、対局で確かめる。Quiet Chessだけの棋力指標です。</p><div id="ckc"></div><div class="card"><b>測定履歴</b><div id="ckh"></div></div></section>
 <section id="p-set" class="pnl" hidden><div class="eyebrow">MAKE YOURSELF AT HOME</div><h1>心地いい盤面を、あなたに。</h1><p class="sub">設定はこの端末に自動保存されます。</p>
 <div class="card"><b>色のプリセット</b><p class="sub">盤面とボタンなどのアクセント色が、一緒に変わります。</p><div class="lv" id="th"></div>
 <div class="row" style="margin-top:28px"><div class="swr" style="flex:1;min-width:200px;margin:0"><span>効果音</span><button class="sw" id="snd" role="switch" aria-checked="true" aria-label="効果音"></button></div><label>音量 <input type="range" id="vol" min="0" max="1" step=".05"></label></div>
-<p class="sub">効果音ファイルは sounds/ フォルダに move / capture / check / end / click のどれかの名前(mp3・ogg・wav)で置くと自動で使われます。無い間は内蔵の合成音です。</p><div class="row"><label>今日の一問の難度 <select id="doff"></select></label></div><p class="sub">あなたの棋力を基準に、どれだけ難しくするか(標準は±0)。今日すでに出題済みの問題は、明日から反映されます。</p></div></section>
+<p class="sub">効果音ファイルは sounds/ フォルダに move / capture / check / end / click のどれかの名前(mp3・ogg・wav)で置くと自動で使われます。無い間は内蔵の合成音です。</p><div class="row" style="margin-top:28px"><b>棋力チェック</b></div><p class="sub" id="ckcur"></p><button data-go="chk" data-ic="target">もう一度チェックする</button><div class="row" style="margin-top:28px"><label>今日の一問の難度 <select id="doff"></select></label></div><p class="sub">あなたの棋力を基準に、どれだけ難しくするか(標準は±0)。今日すでに出題済みの問題は、明日から反映されます。</p></div></section>
 <section id="p-game" class="pnl" hidden><div class="game"><div><div class="bw"><div class="rk" id="rk"></div><div class="bd" id="bd"></div><div class="fl" id="fl"></div></div></div>
 <div><div class="card"><p class="st" id="st"></p><div class="row"><button id="undo" data-ic="undo">待った</button><button id="flip" data-ic="flip">盤を反転</button><button id="draw" data-ic="eq">引き分けを提案</button><button id="res" data-ic="flag" class="dg">投了</button></div>
-<ol class="mv" id="mv"></ol><button id="new" data-ic="plus">新しい対局</button></div></div></div></section>
+<ol class="mv" id="mv"></ol><button id="ckn" data-ic="target" hidden>棋力チェックへ戻る</button><button id="new" data-ic="plus">新しい対局</button></div></div></div></section>
 </main></div></div>
 <dialog id="cf"><button class="x" data-ic="x" aria-label="閉じる"></button><p id="cft"></p><div class="row"><button id="cfo" data-ownsfx>OK</button></div></dialog>
 <dialog id="imp"><button class="x" data-ic="x" aria-label="閉じる"></button><p>PGNを貼り付けるか、ファイルを選んでください</p><textarea id="pt" placeholder="1. e4 e5 2. Nf3 ..."></textarea><div class="row"><input type="file" id="pf" accept=".pgn,.txt"></div><p id="ie" style="color:var(--rd)"></p><div class="row"><button class="pri" id="pgo" data-ic="play">読み込む</button></div></dialog>
