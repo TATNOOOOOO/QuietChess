@@ -49,6 +49,7 @@ function render(last){
   $('#mv').innerHTML=g.sans.map((x,i)=>i%2?`<span>${x}</span>`:`<i>${i/2+1}.</i><span>${x}</span>`).join('');$('#mv').scrollTop=1e5;
   $('#draw').hidden=g.mode!=='local'||!!g.over;$('#res').hidden=!!g.over;$('#undo').disabled=g.busy||g.sans.length<(g.mode==='ai'?(g.hc==='w'?2:3):1)&&true;
   if(g.mode==='ai'&&!g.over&&g.sans.length===0)$('#undo').disabled=true;
+  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;
 }
 function doMove(m,na){const s=cur(),cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
   const n=rep();let r=E.status(ns);if(!r&&n>=3)r='repetition';const ck=E.inCheck(ns);
@@ -87,11 +88,11 @@ $('#res').onclick=()=>ask('投了しますか?',()=>{const s=cur(),loser=g.mode=
 $('#draw').onclick=()=>ask('引き分けを提案し、合意しますか?(一台対局のため、相手の承諾をこの場で確認してください)',()=>{finish('agreed');play('end');render();});
 $('#new').onclick=()=>{const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
 /* panels */
-const TT={home:'ホーム',train:'トレーニング',ai:'AI対局',tact:'タクティクス問題',priv:'プライベート対局',map:'学習マップ',rec:'対局の記録',set:'カスタマイズ'};
+const TT={chk:'棋力チェック',home:'ホーム',train:'トレーニング',ai:'AI対局',tact:'タクティクス問題',priv:'プライベート対局',map:'学習マップ',rec:'対局の記録',set:'カスタマイズ'};
 const SOON={train:'基本的な駒損の確認と、コーチによる一手ごとの解説を用意します。',map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
 function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':(id==='pz'||id==='sr')?'tact':id;if(ss&&!ss.end&&id!=='pz'){clearInterval(ss.tm);ss.end=true;}
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
- if(id==='rec')listUI();if(id==='tact')tactUI();$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
+ if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo(暫定)。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
 $$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
@@ -111,7 +112,7 @@ $('#vol').onchange=()=>play('move');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GK='qcg1';let GS=[];try{GS=JSON.parse(localStorage.getItem(GK)||'[]')}catch(e){}
 const saveG=()=>{try{localStorage.setItem(GK,JSON.stringify(GS.slice(0,60)))}catch(e){}};
-function recordCurrent(){if(!g||!g.sans.length||g.saved)return;g.saved=1;const ai=g.mode==='ai';GS.unshift({id:Date.now(),date:new Date().toISOString().slice(0,10),mode:g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
+function recordCurrent(){if(g&&g.chk&&g.over&&g.res&&g.res!=='*'&&!g.chkDone){g.chkDone=1;chkGameEnd();}if(!g||!g.sans.length||g.saved)return;g.saved=1;const ai=g.mode==='ai';GS.unshift({id:Date.now(),date:new Date().toISOString().slice(0,10),mode:g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
 function listUI(){$('#gl').innerHTML=GS.length?GS.map(r=>`<div class="card gl"><div><b>${esc(r.title)}</b><br><small>${{ai:'AI対局',local:'一台対局',pgn:'読込棋譜'}[r.mode]||''} · ${esc(r.date)} · ${r.sans.length}手</small></div><span class="sp"></span><button data-v="${r.id}" data-ic="play">振り返る</button><button class="dg" data-d="${r.id}" data-ic="trash">削除</button></div>`).join(''):'<div class="card">まだ記録がありません。対局を終えると、ここに保存されます。</div>';
   $$('#gl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));}
 $('#gl').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.v)openRev(+b.dataset.v);if(b.dataset.d)ask('この記録を削除しますか?(元に戻せません)',()=>{GS=GS.filter(x=>x.id!==+b.dataset.d);saveG();listUI();});};
@@ -188,12 +189,13 @@ $('#doff').innerHTML=[-200,-100,0,100,200,300].map(v=>`<option value="${v}">${v=
 function pzPaint(anim){if(!tp)return;const s=tp.s,tg=tp.sel>=0?E.legal(s).filter(m=>m.from===tp.sel&&(!tp.guide||tp.hintTo<0||m.to===tp.hintTo)):[];
   $('#tbd').innerHTML=bhtml(s,tp.flip,tp.last,null,tp.sel,tg);$('#trk').innerHTML=(tp.flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(x=>`<span>${x}</span>`).join('');$('#tfl').innerHTML=(tp.flip?'hgfedcba':'abcdefgh').split('').map(x=>`<span>${x}</span>`).join('');
   if(anim)animMove($('#tbd'),tp.flip,anim.m,false);}
-function pzBtns(){const d=tp&&tp.state==='done';$('#pzback').hidden=!(ctx==='guide'||ctx==='daily');$('#pzg').hidden=!(ctx==='daily'&&d&&!tp.guide);$('#pze').hidden=ctx!=='sess';$('#pzs').hidden=!(ctx==='sess'&&tp&&tp.tries>0&&tp.state==='play');}
-function hud(){if(ctx!=='sess'||!ss){$('#hud').textContent=ctx==='daily'?'DAILY PUZZLE · '+today():'正解の手順を確認';return;}const o=ss.o;
+function pzBtns(){const dd=tp&&tp.state==='done';$('#pzq').hidden=!(ctx==='quiz'&&tp&&tp.state==='play'&&!tp.guide);$('#pzn').hidden=!((ctx==='quiz'&&dd&&!tp.guide&&!tp.ok)||(ctx==='guide'&&gback==='quiz'&&dd));$('#pzx').hidden=ctx!=='quiz';
+  const d=tp&&tp.state==='done';$('#pzback').hidden=!((ctx==='guide'&&gback!=='quiz')||ctx==='daily');$('#pzg').hidden=!((ctx==='daily'&&d&&!tp.guide)||(ctx==='quiz'&&d&&!tp.guide&&!tp.ok));$('#pze').hidden=!(ctx==='sess'||ctx==='quiz');$('#pzs').hidden=!(ctx==='sess'&&tp&&tp.tries>0&&tp.state==='play');}
+function hud(){if(ctx==='quiz'&&K){$('#hud').textContent=`① クイズ ${Math.min(K.z.n+1,30)} / 20〜30  ② 実戦 0 / 3局  暫定 ${K.z.est} QC Elo`;return;}if(ctx!=='sess'||!ss){$('#hud').textContent=ctx==='daily'?'DAILY PUZZLE · '+today():'正解の手順を確認';return;}const o=ss.o;
   $('#hud').innerHTML=(o.mode==='count'?`問題 ${Math.min(ss.idx+1,o.limit)} / ${o.limit}`:o.mode==='time'?`⏱ ${Math.floor(ss.left/60)}:${String(ss.left%60).padStart(2,'0')}`:`ライフ <span class="lv2">${'♥'.repeat(Math.max(0,ss.lives))}</span>`)+` <span>✓ ${ss.ok}</span>`;}
 function pzLoad(p,guide){const f=E.fromFEN(p.fen),tok=tp={p,s:f,mi:0,flip:f.t==='w',sel:-1,last:null,state:'wait',guide,t0:0,hintTo:-1};
   $('#pzt').textContent='準備しています…';$('#pzm').textContent='';$('#pzi').textContent=`難度 ${p.q} QC(Lichess問題レート ${p.r}) · 出典 ${p.id}`;pzPaint();pzBtns();hud();
-  setTimeout(()=>{if(tp!==tok)return;pzApply(E.fromUci(tok.s,p.mv[0]),true);tok.mi=1;tok.state='play';tok.t0=Date.now();$('#pzt').textContent=(tok.s.t==='w'?'白':'黒')+'の番 · よい継続を見つけよう';if(guide)pzHint();},500);}
+  setTimeout(()=>{if(tp!==tok)return;pzApply(E.fromUci(tok.s,p.mv[0]),true);tok.mi=1;tok.state='play';tok.t0=Date.now();pzBtns();$('#pzt').textContent=(tok.s.t==='w'?'白':'黒')+'の番 · よい継続を見つけよう';if(guide)pzHint();},500);}
 function pzApply(m,anim){const s=tp.s,cap=s.b[m.to]!=='.'||m.fl==='ep';tp.s=E.make(s,m);tp.last=m;tp.sel=-1;tp.hintTo=-1;pzPaint(anim?{m,rev:false}:null);play(cap?'capture':'move');}
 function pzHint(){const m=E.fromUci(tp.s,tp.p.mv[tp.mi]);tp.sel=m.from;tp.hintTo=m.to;pzPaint();$('#pzm').textContent='光っているマスの駒を、示された場所へ動かしてみましょう。';}
 function pzMove(m,na){const p=tp.p,tok=tp,ns=E.make(tp.s,m);let ok=E.uci(m)===p.mv[tp.mi];if(!ok&&!tp.guide&&tp.mi===p.mv.length-1&&E.status(ns)==='checkmate')ok=true;
@@ -204,7 +206,7 @@ function pzMove(m,na){const p=tp.p,tok=tp,ns=E.make(tp.s,m);let ok=E.uci(m)===p.
   setTimeout(()=>{if(tp!==tok)return;pzApply(E.fromUci(tp.s,p.mv[tp.mi]),true);tp.mi++;if(tp.mi>=p.mv.length)return pzDone(true);tp.state='play';if(tp.guide)pzHint();},450);}
 function pzDone(ok){tp.state='done';if(tp.guide){$('#pzm').textContent='手順を確認できました。';pzBtns();play('end');return;}
   tp.ok=ok;play(ok?'end':'warn');$('#pzm').textContent=ok?(tp.tries>0?'リトライで正解です。':'正解です。'):tp.skipped?'スキップしました。':'不正解です。';
-  if(ctx==='sess'){sRec(ok);return;}if(ctx==='daily'){S.daily[today()]={ok,id:tp.p.id,q:tp.p.q};save();}pzBtns();}
+  if(ctx==='quiz'){qRec(ok);return;}if(ctx==='sess'){sRec(ok);return;}if(ctx==='daily'){S.daily[today()]={ok,id:tp.p.id,q:tp.p.q};save();}pzBtns();}
 attach($('#tbd'),{ok:()=>tp&&tp.state==='play',st:()=>tp.s,get sel(){return tp.sel},set sel(v){tp.sel=v},paint:()=>pzPaint(),move:(m,na)=>pzMove(m,na)});
 function dStart(){const t=today(),st=S.daily[t],p=(st&&PZ.find(x=>x.id===st.id))||QCPZ.daily(PZ,S.elo+S.dOff,t);ctx=st?'guide':'daily';gback='daily';show('pz');pzLoad(p,!!st);}
 $('#dgo').onclick=dStart;
@@ -222,10 +224,39 @@ function srUI(){const r=ss.res,n=r.length,ok=r.filter(x=>x.ok).length,avg=n?r.re
   const IC2=x=>x.ok?(x.retry?['↻','#b8964a','リトライで正解']:['✓','#6a9a4a','正解']):(x.skip?['»','#8a8a7e','スキップ']:['✕','#c0443a','不正解']);
   $('#srl').innerHTML=r.map((x,i)=>{const c=IC2(x);return `<div class="card gl"><span class="dot" style="background:${c[1]}">${c[0]}</span><div><b>問題 ${i+1} · ${c[2]}</b><br><small>難度 ${x.p.q} QC · ${(x.ms/1000).toFixed(1)}秒</small></div><span class="sp"></span>${x.p.fen?`<button data-g="${i}" data-ic="play">正解を確認</button>`:''}</div>`;}).join('')||'<div class="card">解いた問題がありません。</div>';
   $$('#srl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));}
-$('#tgo').onclick=()=>sStart();$('#srag').onclick=()=>sStart(ss.o);$('#pzs').onclick=()=>{if(!tp||tp.state!=='play')return;tp.skipped=true;tp.state='fail';pzDone(false);};$('#srback').onclick=()=>show('tact');$('#pze').onclick=()=>sEnd('途中で終了');
+$('#tgo').onclick=()=>sStart();$('#srag').onclick=()=>sStart(ss.o);$('#pzs').onclick=()=>{if(!tp||tp.state!=='play')return;tp.skipped=true;tp.state='fail';pzDone(false);};$('#srback').onclick=()=>show('tact');$('#pze').onclick=()=>{if(ctx==='quiz'){tp=null;saveK();show('chk');}else sEnd('途中で終了');};
 $('#srl').onclick=e=>{const b=e.target.closest('button');if(!b)return;ctx='guide';gback='sess';show('pz');pzLoad(ss.res[+b.dataset.g].p,true);};
-$('#pzg').onclick=()=>{const p=tp.p;ctx='guide';gback='daily';pzLoad(p,true);};
+$('#pzg').onclick=()=>{const p=tp.p;gback=ctx;ctx='guide';pzLoad(p,true);};
 $('#pzback').onclick=()=>{const c=ctx;tp=null;if(c==='guide'&&gback==='sess'){ctx='sess';show('sr');}else show('tact');};
 window._qc={get tp(){return tp},get ss(){return ss}};
+/* rating check */
+const KK='qck1',KHK='qckh1';let K=null,KH=[];try{K=JSON.parse(localStorage.getItem(KK)||'null');KH=JSON.parse(localStorage.getItem(KHK)||'[]')}catch(e){}
+const saveK=()=>{try{localStorage.setItem(KK,JSON.stringify(K));localStorage.setItem(KHK,JSON.stringify(KH.slice(0,30)))}catch(e){}};
+const clampE=v=>Math.max(100,Math.min(3000,Math.round(v)));
+const halfNow=()=>Math.max(80,Math.round(K.half0*(1-.05*K.games.length)/10)*10);
+function chkUI(){const c=$('#ckc'),dis=PZ?'':'disabled';let t;
+  if(!K)t=`<div class="card"><h2 class="h2">棋力チェックをはじめる</h2><p class="sub">① クイズ(20〜30問): 正解すると難しく、間違えるとやさしくなります。② 実戦3局: 推定に合わせたAIと指して、確かめます。途中で中断しても保存されます。測定が終わるまで、いまの推定Eloは変わりません。</p><div class="ckb"><button class="pri" data-a="start" data-ic="play" ${dis}>測定をはじめる</button></div></div>`;
+  else if(K.phase==='quiz')t=`<div class="card"><div class="eyebrow">① クイズ ${K.z.n} / 20〜30 · ② 実戦 0 / 3局</div><h2 class="h2">クイズの途中です</h2><p class="sub">${K.z.n}問まで終わっています。暫定 ${K.z.est} QC Elo。</p><div class="ckb"><button class="pri" data-a="qres" data-ic="play" ${dis}>続きから</button><button class="dg" data-a="cancel" data-ic="x">測定を取り消す</button></div></div>`;
+  else if(K.phase==='games')t=`<div class="card"><div class="eyebrow">① クイズ ${K.z.n}問 完了 · ② 実戦 ${K.games.length} / 3局</div><h2 class="h2">次は、実戦で確かめます</h2><p class="sub">クイズのみの推定は ${K.qEst} QC Elo。相手の目標は ${clampE(K.est)} Elo です(待ったは使えません)。</p><div class="ckb"><button class="pri" data-a="game" data-ic="play">対局をはじめる</button><button class="dg" data-a="cancel" data-ic="x">測定を取り消す</button></div></div>`;
+  else{const r=KH[0]||{est:K.est,lo:K.est-100,hi:K.est+100,n:K.z.n,gn:K.games.length};t=`<div class="card" style="text-align:center"><div class="eyebrow">QUIET CHESS ESTIMATE · MODEL V1</div><div class="big">${r.est} <small>QC Elo</small></div><h2 class="h2">比べるのは、昨日の自分。</h2><p class="sub">目安幅 ${r.lo}〜${r.hi} · ${r.n}問・${r.gn}局。<br>クイズのみの推定 ${K.qEst} → 実戦${r.gn}局を反映して ${r.est}。<br>この幅は初期モデル内の不確かさの目安で、誤差±50や統計的な精度保証ではありません。他サービスのレーティングには換算できません。</p><div class="ckb" style="justify-content:center"><button class="pri" data-a="back" data-ic="back">戻る</button><button data-a="game" data-ic="play">追加対局で確かめる</button><button data-a="restart" data-ic="plus">新しく測定する</button><button class="dg" data-a="undo" data-ic="x">この結果を取り消す</button></div></div>`;}
+  c.innerHTML=t;$$('#ckc [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
+  $('#ckh').innerHTML=KH.length?KH.map(r=>{const d=new Date(r.t);return `<div class="gl" style="padding:10px 0;border-bottom:1px solid var(--ln)"><b>${r.est} QC Elo</b><span>目安幅 ${r.lo}〜${r.hi}</span><small>${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} · ${r.n}問／${r.gn}局</small></div>`;}).join(''):'<p class="sub">まだ測定履歴がありません。</p>';}
+$('#ckc').onclick=e=>{const b=e.target.closest('button');if(!b)return;const A=b.dataset.a;
+  if(A==='start'||A==='restart'){K={phase:'quiz',z:{est:clampE(S.elo),step:300,n:0,hist:[],used:[]},games:[],prev:K&&K.phase==='done'?K.prev:S.elo};saveK();qRun();}
+  else if(A==='qres')qRun();else if(A==='game')ckGame();else if(A==='back')show('ai');
+  else if(A==='cancel')ask('この測定を取り消しますか?(いまの推定Eloは変わりません)',()=>{K=null;saveK();chkUI();});
+  else if(A==='undo')ask('この結果を取り消しますか?(推定Eloを測定前に戻します)',()=>{S.elo=K.prev;save();KH.shift();K=null;saveK();chkUI();});};
+function qRun(){ctx='quiz';show('pz');qNext();}
+function qNext(){if(!K||K.phase!=='quiz')return;if(QCPZ.qDone(K.z))return qFin();pzLoad(QCPZ.nearest(PZ,K.z.est,new Set(K.z.used),6),false);}
+function qFin(){const r=QCPZ.qResult(K.z);K.qEst=r.est;K.est=r.est;K.half0=r.half;K.phase='games';saveK();tp=null;show('chk');}
+function qRec(ok){QCPZ.qAnswer(K.z,tp.p,ok);saveK();hud();if(ok){const me=K;setTimeout(()=>{if(K===me&&ctx==='quiz'&&tp&&tp.ok)qNext();},900);}else pzBtns();}
+$('#pzq').onclick=()=>{if(tp&&tp.state==='play'&&ctx==='quiz'){tp.skipped=true;tp.state='fail';pzDone(false);}};
+$('#pzn').onclick=()=>{ctx='quiz';qNext();};
+$('#pzx').onclick=()=>ask('この測定を取り消しますか?(いまの推定Eloは変わりません)',()=>{K=null;saveK();tp=null;show('chk');});
+function ckGame(){const hc=K.games.length%2===0?'w':'b';newGame('ai',hc,clampE(K.est));g.chk=1;render();}
+$('#ckn').onclick=()=>show('chk');
+function chkGameEnd(){if(!K)return;const w=g.hc==='w',sc=g.res==='1/2-1/2'?.5:((g.res==='1-0')===w?1:0);K.games.push({sc,elo:g.elo});K.est=clampE(K.est+30*(2*sc-1));
+  if(K.phase==='games'&&K.games.length>=3){K.phase='done';ckFin(true);}else if(K.phase==='done')ckFin(false);saveK();}
+function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;save();}
 thUI();lvUI();show('home');
 })();
