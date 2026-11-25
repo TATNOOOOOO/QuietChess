@@ -4,7 +4,7 @@ const IC={flip:'M4 8h13l-3-3M20 16H7l3 3',undo:'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0
 const ic=n=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${IC[n]}"/></svg>`;
 $$('[data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
 const TH=[['セージ','#e9ede4','#8c9f88','#6d826b'],['グラファイト','#e8e8e8','#9a9a9e','#55575c'],['サンド','#efe4d3','#b79a7a','#8c6d46'],['ダスク','#e3e7f1','#8a9ab2','#5f7090']];
-let S={elo:540,th:2,snd:1,vol:.5};try{Object.assign(S,JSON.parse(localStorage.getItem('qc1')||'{}'))}catch(e){}
+let S={elo:800,th:2,snd:1,vol:.5,meas:0};try{Object.assign(S,JSON.parse(localStorage.getItem('qc1')||'{}'))}catch(e){}if(!S.meas&&S.elo===540)S.elo=800;
 const save=()=>{try{localStorage.setItem('qc1',JSON.stringify(S))}catch(e){}};
 function theme(){const t=TH[S.th];const r=document.documentElement.style;r.setProperty('--li',t[1]);r.setProperty('--da',t[2]);r.setProperty('--ac',t[3]);}
 /* sound */
@@ -16,9 +16,14 @@ function load(n,i){i=i||0;const ex=['mp3','ogg','wav'];if(i>2)return;const a=new
 function play(n){if(!S.snd)return;const a=files[n];if(a){const c=a.cloneNode();c.volume=S.vol;c.play().catch(()=>{});}else SFX[n]&&SFX[n]();}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&!b.hasAttribute('data-ownsfx'))play('click');});
 /* Stockfish (optional: used if stockfish-19-lite-single.js sits next to index.html) */
-let sf=null,sfOK=false,sfCb=null;
-try{sf=new Worker('stockfish-19-lite-single.js');sf.onerror=()=>{sf=null;sfOK=false};sf.onmessage=e=>{const d=String(e.data);if(d==='uciok')sfOK=true;if(/^bestmove/.test(d)&&sfCb){const c=sfCb;sfCb=null;c(d.split(' ')[1]);}};sf.postMessage('uci');}catch(e){sf=null;}
-function askSF(s,elo,cb){const t=setTimeout(()=>{sfCb=null;cb(null)},6000);sfCb=u=>{clearTimeout(t);cb(E.fromUci(s,u))};sf.postMessage('setoption name UCI_LimitStrength value true');sf.postMessage('setoption name UCI_Elo value '+Math.min(3190,elo));sf.postMessage('position fen '+E.toFEN(s));sf.postMessage('go movetime 500');}
+let sf=null,sfOK=false,sfCb=null,sfInfo=null;
+try{sf=new Worker('stockfish-19-lite-single.js');sf.onerror=()=>{sf=null;sfOK=false};sf.onmessage=e=>{const d=String(e.data);if(d==='uciok')sfOK=true;if(sfInfo&&d.startsWith('info')&&/ multipv \d/.test(d)&&/ depth 6 /.test(d)){const mp=+d.match(/multipv (\d+)/)[1],m=d.match(/score (cp|mate) (-?\d+)/),pv=d.match(/ pv (\S+)/);if(m&&pv)sfInfo[mp]={sc:m[1]==='mate'?Math.sign(+m[2])*10000:+m[2],u:pv[1]};}if(/^bestmove/.test(d)&&sfCb){const c=sfCb;sfCb=null;c(d.split(' ')[1]);}};sf.postMessage('uci');}catch(e){sf=null;}
+function askSF(s,elo,cb){const t=setTimeout(()=>{sfCb=null;cb(null)},6000);sfCb=u=>{clearTimeout(t);cb(E.fromUci(s,u))};sf.postMessage('setoption name MultiPV value 1');sf.postMessage('setoption name UCI_LimitStrength value true');sf.postMessage('setoption name UCI_Elo value '+Math.min(3190,elo));sf.postMessage('position fen '+E.toFEN(s));sf.postMessage('go movetime 500');}
+function askSample(s,elo,cb){const ms=E.legal(s),d=1320-elo,rp=Math.min(.45,.04+d/1320*.4),T=400+d*.5;
+  if(Math.random()<rp){setTimeout(()=>cb(ms[Math.random()*ms.length|0]),0);return;}
+  sfInfo={};const t=setTimeout(()=>{sfCb=null;sfInfo=null;cb(null)},6000);
+  sfCb=()=>{clearTimeout(t);const c=Object.values(sfInfo||{});sfInfo=null;if(!c.length)return cb(null);const b=Math.max(...c.map(x=>x.sc)),w=c.map(x=>Math.exp((x.sc-b)/T));let r=Math.random()*w.reduce((x,y)=>x+y),i=0;while(r>w[i]&&i<w.length-1){r-=w[i];i++;}cb(E.fromUci(s,c[i].u));};
+  sf.postMessage('setoption name UCI_LimitStrength value false');sf.postMessage('setoption name MultiPV value 6');sf.postMessage('position fen '+E.toFEN(s));sf.postMessage('go depth 6');}
 /* game */
 let g=null;const cur=()=>g.st[g.st.length-1],isW=p=>p<'a';
 const key=s=>E.toFEN(s).split(' ').slice(0,3).join(' ');
@@ -58,7 +63,7 @@ function doMove(m,na){const s=cur(),cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s
 function finish(r){const s=cur(),W=s.t==='w'?'黒':'白';
   g.over={checkmate:`詰み:${W}の勝ちです`,stalemate:'ステイルメイトで引き分けです',repetition:'同一局面が3回現れ、引き分けです',fifty:'50手ルールで引き分けです',insufficient:'駒が足りず、引き分けです',agreed:'合意により引き分けです'}[r]||r;g.res=r==='checkmate'?(s.t==='w'?'0-1':'1-0'):'1/2-1/2';recordCurrent();}
 function aiMove(){g.busy=true;$('#st').textContent='AIが考えています…';$('#undo').disabled=true;const gg=g;setTimeout(()=>{if(g!==gg||g.over)return;const s=cur(),done=m=>{if(g!==gg||g.over)return;g.busy=false;doMove(m||QCAI.pick(s,gg.elo));};
-  if(gg.elo>=1320&&sf&&sfOK)askSF(s,gg.elo,done);else done(QCAI.pick(s,gg.elo));},450);}
+  const e=Math.max(100,Math.min(3000,gg.elo+(gg.chk?0:(S.aoff||0))));if(sf&&sfOK){gg.aiPath=e>=1320?'uci':'sample';(e>=1320?askSF:askSample)(s,e,done);}else{gg.aiPath='own';done(QCAI.pick(s,e));}},450);}
 function slide(bd,flip,f,t){const o=i=>flip?63-i:i,c=bd.children[o(t)],el=c&&c.querySelector('.pc');if(!el)return;el.style.transform=`translate(${((o(f)&7)-(o(t)&7))*100}%,${((o(f)>>3)-(o(t)>>3))*100}%)`;el.offsetWidth;el.classList.add('an');el.style.transform='';}
 function animMove(bd,flip,m,rev){slide(bd,flip,rev?m.to:m.from,rev?m.from:m.to);
   if(m.fl==='oo')rev?slide(bd,flip,m.to-1,m.to+1):slide(bd,flip,m.to+1,m.to-1);if(m.fl==='ooo')rev?slide(bd,flip,m.to+1,m.to-2):slide(bd,flip,m.to-2,m.to+1);}
@@ -92,13 +97,13 @@ const TT={chk:'棋力チェック',home:'ホーム',train:'トレーニング',a
 const SOON={train:'基本的な駒損の確認と、コーチによる一手ごとの解説を用意します。',map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
 function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':(id==='pz'||id==='sr')?'tact':id;if(ss&&!ss.end&&id!=='pz'){clearInterval(ss.tm);ss.end=true;}
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
- if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo(暫定)。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
+ if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo'+(S.meas?'(測定済み)':'(未測定の仮の値)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
 $$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
 let lv=2;
 function lvUI(){$('#lv').innerHTML=LV.map((l,i)=>`<button class="${i===lv?'on':''}" data-l="${i}" title="${l[2]===null?'相手のEloを自分で決めます':'相手の目標Eloが、あなたより '+(l[2]>0?'+':'')+l[2]+' です'}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');
-  $('#cu').hidden=lv!==5;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];$('#lvd').textContent='相手の目標:'+Math.max(100,t)+' Elo(暫定AI。序盤の定跡は未実装です)';}
+  $('#cu').hidden=lv!==5;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];$('#elom').textContent=S.meas?'棋力チェックの結果です':'未測定の仮の値です。棋力チェックでより正確に。';$('#lvd').textContent='相手の目標:'+Math.max(100,t)+' Elo(暫定AI。序盤の定跡は未実装です)';}
 $('#lv').onclick=e=>{const b=e.target.closest('button');if(!b)return;lv=+b.dataset.l;lvUI();};$('#celo').oninput=lvUI;
 $('#elo').value=S.elo;$('#elo').oninput=()=>{S.elo=Math.min(3000,Math.max(100,+$('#elo').value||540));save();lvUI();};
 $('#go').onclick=()=>{const hc=$('#col').value==='r'?(Math.random()<.5?'w':'b'):$('#col').value;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];newGame('ai',hc,Math.min(3000,Math.max(100,t||600)));};
@@ -185,6 +190,7 @@ $('#tlo').onchange=$('#thi').onchange=()=>{S.tr.lo=+$('#tlo').value||60;S.tr.hi=
 $('#tpre').onclick=e=>{const b=e.target.closest('button');if(!b)return;const x=S.elo,r={easy:[x-400,x],mid:[x-200,x+200],hard:[x,x+400]}[b.dataset.q];S.tr.lo=Math.max(60,r[0]);S.tr.hi=r[1];save();tactUI();};
 $('#tmode').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tr.mode=b.dataset.m;S.tr.limit=LIM[b.dataset.m][1];save();tactUI();};
 $('#tlim').onchange=()=>{S.tr.limit=+$('#tlim').value;save();};$('#tord').onchange=()=>{S.tr.order=$('#tord').value;save();};
+$('#aoff').innerHTML=[-300,-200,-100,0,100,200].map(v=>`<option value="${v}">${v===0?'±0(標準)':(v>0?'+':'')+v}</option>`).join('');$('#aoff').value=S.aoff||0;$('#aoff').onchange=()=>{S.aoff=+$('#aoff').value;save();};
 $('#doff').innerHTML=[-200,-100,0,100,200,300].map(v=>`<option value="${v}">${v===0?'±0(棋力どおり)':(v>0?'+':'')+v}</option>`).join('');$('#doff').value=S.dOff;$('#doff').onchange=()=>{S.dOff=+$('#doff').value;save();};
 function pzPaint(anim){if(!tp)return;const s=tp.s,tg=tp.sel>=0?E.legal(s).filter(m=>m.from===tp.sel&&(!tp.guide||tp.hintTo<0||m.to===tp.hintTo)):[];
   $('#tbd').innerHTML=bhtml(s,tp.flip,tp.last,null,tp.sel,tg);$('#trk').innerHTML=(tp.flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(x=>`<span>${x}</span>`).join('');$('#tfl').innerHTML=(tp.flip?'hgfedcba':'abcdefgh').split('').map(x=>`<span>${x}</span>`).join('');
@@ -228,7 +234,7 @@ $('#tgo').onclick=()=>sStart();$('#srag').onclick=()=>sStart(ss.o);$('#pzs').onc
 $('#srl').onclick=e=>{const b=e.target.closest('button');if(!b)return;ctx='guide';gback='sess';show('pz');pzLoad(ss.res[+b.dataset.g].p,true);};
 $('#pzg').onclick=()=>{const p=tp.p;gback=ctx;ctx='guide';pzLoad(p,true);};
 $('#pzback').onclick=()=>{const c=ctx;tp=null;if(c==='guide'&&gback==='sess'){ctx='sess';show('sr');}else show('tact');};
-window._qc={get tp(){return tp},get ss(){return ss}};
+window._qc={get g(){return g},get tp(){return tp},get ss(){return ss}};
 /* rating check */
 const KK='qck1',KHK='qckh1';let K=null,KH=[];try{K=JSON.parse(localStorage.getItem(KK)||'null');KH=JSON.parse(localStorage.getItem(KHK)||'[]')}catch(e){}
 const saveK=()=>{try{localStorage.setItem(KK,JSON.stringify(K));localStorage.setItem(KHK,JSON.stringify(KH.slice(0,30)))}catch(e){}};
@@ -242,10 +248,10 @@ function chkUI(){const c=$('#ckc'),dis=PZ?'':'disabled';let t;
   c.innerHTML=t;$$('#ckc [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
   $('#ckh').innerHTML=KH.length?KH.map(r=>{const d=new Date(r.t);return `<div class="gl" style="padding:10px 0;border-bottom:1px solid var(--ln)"><b>${r.est} QC Elo</b><span>目安幅 ${r.lo}〜${r.hi}</span><small>${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} · ${r.n}問／${r.gn}局</small></div>`;}).join(''):'<p class="sub">まだ測定履歴がありません。</p>';}
 $('#ckc').onclick=e=>{const b=e.target.closest('button');if(!b)return;const A=b.dataset.a;
-  if(A==='start'||A==='restart'){K={phase:'quiz',z:{est:clampE(S.elo),step:300,n:0,hist:[],used:[]},games:[],prev:K&&K.phase==='done'?K.prev:S.elo};saveK();qRun();}
+  if(A==='start'||A==='restart'){K={phase:'quiz',z:{est:clampE(S.elo),step:300,n:0,hist:[],used:[]},games:[],prev:K&&K.phase==='done'?K.prev:S.elo,pm:K&&K.phase==='done'?K.pm:S.meas};saveK();qRun();}
   else if(A==='qres')qRun();else if(A==='game')ckGame();else if(A==='back')show('ai');
   else if(A==='cancel')ask('この測定を取り消しますか?(いまの推定Eloは変わりません)',()=>{K=null;saveK();chkUI();});
-  else if(A==='undo')ask('この結果を取り消しますか?(推定Eloを測定前に戻します)',()=>{S.elo=K.prev;save();KH.shift();K=null;saveK();chkUI();});};
+  else if(A==='undo')ask('この結果を取り消しますか?(推定Eloを測定前に戻します)',()=>{S.elo=K.prev;S.meas=K.pm||0;save();KH.shift();K=null;saveK();chkUI();});};
 function qRun(){ctx='quiz';show('pz');qNext();}
 function qNext(){if(!K||K.phase!=='quiz')return;if(QCPZ.qDone(K.z))return qFin();pzLoad(QCPZ.nearest(PZ,K.z.est,new Set(K.z.used),6),false);}
 function qFin(){const r=QCPZ.qResult(K.z);K.qEst=r.est;K.est=r.est;K.half0=r.half;K.phase='games';saveK();tp=null;show('chk');}
@@ -257,6 +263,6 @@ function ckGame(){const hc=K.games.length%2===0?'w':'b';newGame('ai',hc,clampE(K
 $('#ckn').onclick=()=>show('chk');
 function chkGameEnd(){if(!K)return;const w=g.hc==='w',sc=g.res==='1/2-1/2'?.5:((g.res==='1-0')===w?1:0);K.games.push({sc,elo:g.elo});K.est=clampE(K.est+30*(2*sc-1));
   if(K.phase==='games'&&K.games.length>=3){K.phase='done';ckFin(true);}else if(K.phase==='done')ckFin(false);saveK();}
-function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;save();}
+function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;S.meas=1;save();}
 thUI();lvUI();show('home');
 })();
