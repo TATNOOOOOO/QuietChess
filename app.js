@@ -34,10 +34,10 @@ b:'<path d="M16.5 33.5c0-5 2-8 3.2-10.4-2.6-2-4-4.8-4-7.6 0-4.5 3.3-8 7-9.5 3.7 
 n:'<path d="M13.5 37.5c0-7 3-9.5 5.5-13 1.5-2.2 1-3.5 0-4.5l-4 2.5c-1 .6-2.5 0-2.5-1.5 0-1.2.8-2.2 1.8-3 2-1.8 4.2-5.5 6-8 1-1.5 2-2.2 3.2-2.4V5.5l2 1.8c5.5 1.5 11 6 11 14.2v16z"/><circle class="e" cx="21.5" cy="14.5" r="1.3"/><circle class="e" cx="14.5" cy="19.6" r=".9"/><rect x="12" y="34" width="24.5" height="4.2" rx="1.8"/>',
 q:'<path d="M14 34L12.5 16L16 23.5L17.5 12.5L20.2 23L22.5 10.5L24.8 23L27.5 12.5L29 23.5L32.5 16L31 34Z"/><circle cx="12.5" cy="15" r="1.7"/><circle cx="17.5" cy="11.5" r="1.7"/><circle cx="22.5" cy="9.5" r="1.7"/><circle cx="27.5" cy="11.5" r="1.7"/><circle cx="32.5" cy="15" r="1.7"/><rect x="12" y="33.5" width="21" height="4.5" rx="1.8"/>',
 k:'<path d="M14 34c-1-6 0-9 3-12-2-2-3.5-4.5-3.5-7.5 0-3 2.5-5.5 5.5-5.5h5c3 0 5.5 2.5 5.5 5.5 0 3-1.5 5.5-3.5 7.5 3 3 4 6 3 12z"/><path d="M20.9 9.2V7H18.4V4.4h2.5V1.3h3.2v3.1h2.5V7h-2.5v2.2z"/><rect x="12" y="33.5" width="21" height="4.5" rx="1.8"/>'};
-const pcs=p=>`<svg viewBox="0 0 45 45" aria-hidden="true">${PS[p.toLowerCase()]}</svg>`;
+const pcs=(p,st)=>(st||S.ps)==='letter'?`<span class="lt">${p.toUpperCase()}</span>`:`<svg viewBox="0 0 45 45" aria-hidden="true">${PS[p.toLowerCase()]}</svg>`;
 
 function rep(){const k=key(cur());g.reps[k]=(g.reps[k]||0)+1;return g.reps[k];}
-function newGame(mode,hc,elo){g={mode,hc,elo,st:[E.fromFEN(E.START)],sans:[],reps:{},over:'',sel:-1,flip:hc==='b',busy:false};rep();show('game');render();if(mode==='ai'&&cur().t!==hc)aiMove();}
+function newGame(mode,hc,elo,tc){g={mode,hc,elo,st:[E.fromFEN(E.START)],sans:[],reps:{},over:'',sel:-1,flip:hc==='b',busy:false,tc:tc&&tc[0]?tc:null,clk:{w:(tc?tc[0]:0)*1000,b:(tc?tc[0]:0)*1000},clkH:[],ts:Date.now()};rep();show('game');render();if(mode==='ai'&&cur().t!==hc)aiMove();}
 function render(last){
   const s=cur(),ms=g.over?[]:E.legal(s),lm=g.mv&&0,bd=$('#bd');
   const ord=[...Array(64).keys()];if(g.flip)ord.reverse();
@@ -54,16 +54,16 @@ function render(last){
   $('#mv').innerHTML=g.sans.map((x,i)=>i%2?`<span>${x}</span>`:`<i>${i/2+1}.</i><span>${x}</span>`).join('');$('#mv').scrollTop=1e5;
   $('#draw').hidden=g.mode!=='local'||!!g.over;$('#res').hidden=!!g.over;$('#undo').disabled=g.busy||g.sans.length<(g.mode==='ai'?(g.hc==='w'?2:3):1)&&true;
   if(g.mode==='ai'&&!g.over&&g.sans.length===0)$('#undo').disabled=true;
-  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;$('#coach').hidden=!g.train;if(g.train&&g.va&&g.va.ply===g.sans.length)addBadge();
+  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;$('#coach').hidden=!g.train;if(g.train&&g.va&&g.va.ply===g.sans.length)addBadge();clkUI();
 }
-function doMove(m,na){const s=cur(),cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
+function doMove(m,na){const s=cur();clkMove(s.t);const cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
   const n=rep();let r=E.status(ns);if(!r&&n>=3)r='repetition';const ck=E.inCheck(ns);
   if(r)finish(r);render(na?null:m);play(r?'end':ck?'check':cap?'capture':'move');
   if(!r&&g.mode==='ai'&&ns.t!==g.hc){if(g.train)coachEval(s,m,ns,aiMove);else aiMove();}}
 function finish(r){const s=cur(),W=s.t==='w'?'黒':'白';
   g.over={checkmate:`詰み:${W}の勝ちです`,stalemate:'ステイルメイトで引き分けです',repetition:'同一局面が3回現れ、引き分けです',fifty:'50手ルールで引き分けです',insufficient:'駒が足りず、引き分けです',agreed:'合意により引き分けです'}[r]||r;g.res=r==='checkmate'?(s.t==='w'?'0-1':'1-0'):'1/2-1/2';recordCurrent();}
 function aiMove(){g.busy=true;$('#st').textContent='AIが考えています…';$('#undo').disabled=true;const gg=g;setTimeout(()=>{if(g!==gg||g.over)return;const s=cur(),done=m=>{if(g!==gg||g.over)return;g.busy=false;doMove(m||QCAI.pick(s,gg.elo));};
-  const e=Math.max(100,Math.min(3000,gg.elo+(gg.chk?0:(S.aoff||0))));if(sf&&sfOK){gg.aiPath=e>=1320?'uci':'sample';(e>=1320?askSF:askSample)(s,e,done);}else{gg.aiPath='own';done(QCAI.pick(s,e));}},450);}
+  const e=Math.max(100,Math.min(3000,gg.elo+(gg.chk?0:(S.aoff||0)))),bm=bookMove(s,gg,e);if(bm){gg.aiPath='book';done(bm);return;}if(sf&&sfOK){gg.aiPath=e>=1320?'uci':'sample';(e>=1320?askSF:askSample)(s,e,done);}else{gg.aiPath='own';done(QCAI.pick(s,e));}},450);}
 function slide(bd,flip,f,t){const o=i=>flip?63-i:i,c=bd.children[o(t)],el=c&&c.querySelector('.pc');if(!el)return;el.style.transform=`translate(${((o(f)&7)-(o(t)&7))*100}%,${((o(f)>>3)-(o(t)>>3))*100}%)`;el.offsetWidth;el.classList.add('an');el.style.transform='';}
 function animMove(bd,flip,m,rev){slide(bd,flip,rev?m.to:m.from,rev?m.from:m.to);
   if(m.fl==='oo')rev?slide(bd,flip,m.to-1,m.to+1):slide(bd,flip,m.to+1,m.to-1);if(m.fl==='ooo')rev?slide(bd,flip,m.to+1,m.to-2):slide(bd,flip,m.to-2,m.to+1);}
@@ -88,7 +88,7 @@ function ask(msg,cb){$('#cft').textContent=msg;const o=$('#cfo');o.className='dg
 $$('dialog .x').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#flip').onclick=()=>{g.flip=!g.flip;render();};
 $('#undo').onclick=()=>{if(g.busy||!g.sans.length)return;let n=1;if(g.mode==='ai'&&cur().t===g.hc)n=2;if(g.mode==='ai'&&g.over)n=cur().t===g.hc?2:1;
-  for(let i=0;i<n&&g.sans.length;i++){const k=key(cur());g.reps[k]--;g.st.pop();g.sans.pop();}g.over='';g.last=null;g.sel=-1;render();if(g.mode==='ai'&&cur().t!==g.hc)aiMove();};
+  for(let i=0;i<n&&g.sans.length;i++){const k=key(cur());g.reps[k]--;g.st.pop();g.sans.pop();if(g.clkH&&g.clkH.length)g.clk=g.clkH.pop();}g.ts=Date.now();g.over='';g.last=null;g.sel=-1;render();if(g.mode==='ai'&&cur().t!==g.hc)aiMove();};
 $('#res').onclick=()=>ask('投了しますか?',()=>{const s=cur(),loser=g.mode==='ai'?g.hc:s.t;g.res=loser==='w'?'0-1':'1-0';g.over=`投了:${loser==='w'?'黒':'白'}の勝ちです`;recordCurrent();play('end');render();});
 $('#draw').onclick=()=>ask('引き分けを提案し、合意しますか?(一台対局のため、相手の承諾をこの場で確認してください)',()=>{finish('agreed');play('end');render();});
 $('#new').onclick=()=>{const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
@@ -106,8 +106,8 @@ function lvUI(){$('#lv').innerHTML=LV.map((l,i)=>`<button class="${i===lv?'on':'
   $('#cu').hidden=lv!==5;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];$('#elom').textContent=S.meas?'棋力チェックの結果です':'未測定の仮の値です。棋力チェックでより正確に。';$('#lvd').textContent='相手の目標:'+Math.max(100,t)+' Elo(暫定AI。序盤の定跡は未実装です)';}
 $('#lv').onclick=e=>{const b=e.target.closest('button');if(!b)return;lv=+b.dataset.l;lvUI();};$('#celo').oninput=lvUI;
 $('#elo').value=S.elo;$('#elo').oninput=()=>{S.elo=Math.min(3000,Math.max(100,+$('#elo').value||540));save();lvUI();};
-$('#go').onclick=()=>{const hc=$('#col').value==='r'?(Math.random()<.5?'w':'b'):$('#col').value;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];newGame('ai',hc,Math.min(3000,Math.max(100,t||600)));};
-$('#golocal').onclick=()=>newGame('local',null,0);
+$('#go').onclick=()=>{const hc=$('#col').value==='r'?(Math.random()<.5?'w':'b'):$('#col').value;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];newGame('ai',hc,Math.min(3000,Math.max(100,t||600)),tcOf(1));};
+$('#golocal').onclick=()=>newGame('local',null,0,tcOf(3));
 $('#th').innerHTML=TH.map((t,i)=>`<button data-t="${i}"><span style="display:inline-block;width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,${t[1]} 50%,${t[2]} 50%)"></span>${t[0]}</button>`).join('');
 function thUI(){$$('#th button').forEach(b=>b.classList.toggle('on',+b.dataset.t===S.th));theme();}
 $('#th').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.th=+b.dataset.t;save();thUI();if(g)render();};
@@ -271,7 +271,7 @@ const CL=[['Gentle','とてもやさしく',-150],['Calm','やさしく',-75],['
 function tlUI(){$('#clv').innerHTML=CL.map((l,i)=>`<button class="${i===tl?'on':''}" data-l="${i}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');$('#clc').hidden=tl!==5;
   const t=tl===5?+$('#cle').value:S.elo+CL[tl][2];$('#cld').textContent='コーチの目標:'+Math.max(100,t||600)+' Elo(あなたの推定 '+S.elo+' Elo'+(S.meas?'':'・未測定の仮の値')+')';}
 $('#clv').onclick=e=>{const b=e.target.closest('button');if(b){tl=+b.dataset.l;tlUI();}};$('#cle').oninput=tlUI;
-$('#cgo').onclick=()=>{const hc=$('#ccol').value==='r'?(Math.random()<.5?'w':'b'):$('#ccol').value,t=tl===5?+$('#cle').value:S.elo+CL[tl][2];newGame('ai',hc,clampE(t||600));g.train=1;g.va=null;render();};
+$('#cgo').onclick=()=>{const hc=$('#ccol').value==='r'?(Math.random()<.5?'w':'b'):$('#ccol').value,t=tl===5?+$('#cle').value:S.elo+CL[tl][2];newGame('ai',hc,clampE(t||600),tcOf(2));g.train=1;g.va=null;render();};
 function addBadge(){const b=BG[g.va.an.cls];if(!b||g.va.an.cls==='good')return;const ord=[...Array(64).keys()];if(g.flip)ord.reverse();const c=$('#bd').children[ord.indexOf(g.va.m.to)];if(c&&!c.querySelector('.bg'))c.insertAdjacentHTML('beforeend',`<span class="bg" style="background:${b[1]}">${b[0]}</span>`);}
 function coachEval(s0,m,ns,next){const gg=g,ply=g.sans.length;g.busy=true;$('#undo').disabled=true;$('#st').textContent='コーチが確認しています…';
   const fin=an=>{if(g!==gg)return;g.busy=false;$('#undo').disabled=g.sans.length<2;if(an){g.va={ply,an,s0,m};const b=BG[an.cls];
@@ -320,5 +320,51 @@ attach($('#wbd'),{ok:()=>wv&&wv.guide===1&&wv.L&&wv.L[wv.tab].st[wv.k]&&wv.k<wv.
   if(E.uci(m)!==E.uci(ex)){if(g_)g_.textContent='その手ではありません。矢印の手を指してみましょう。';wv.sel=-1;wdraw();return;}
   wv.k++;wv.sel=-1;wdraw(na?null:{m,rev:false});play('move');if(wv.k>=L.mv.length){wv.guide=2;if(g_)g_.textContent='手順を確認できました。「元の本局へ戻る」で戻れます。';wdraw();return;}
   wv.wait=1;setTimeout(()=>{if(!wv)return;wv.wait=0;const om=L.mv[wv.k];wv.k++;wdraw({m:om,rev:false});play('move');if(wv.k>=L.mv.length){wv.guide=2;if(g_)g_.textContent='手順を確認できました。「元の本局へ戻る」で戻れます。';wdraw();}},450);}});
-thUI();lvUI();show('home');
+/* clock + opening book */
+const TCB=[[0,'無制限'],[60,'1分'],[180,'3分'],[300,'5分'],[600,'10分'],[900,'15分']],TCI=[[0,'なし'],[2,'2秒'],[5,'5秒'],[10,'10秒']];
+S.tcb=S.tcb||0;S.tci=S.tci||0;
+[1,2,3].forEach(n=>{$('#tcb'+n).innerHTML=TCB.map(x=>`<option value="${x[0]}" ${x[0]===S.tcb?'selected':''}>${x[1]}</option>`).join('');$('#tci'+n).innerHTML=TCI.map(x=>`<option value="${x[0]}" ${x[0]===S.tci?'selected':''}>${x[1]}</option>`).join('');
+  $('#tcb'+n).onchange=$('#tci'+n).onchange=()=>{S.tcb=+$('#tcb'+n).value;S.tci=+$('#tci'+n).value;save();[1,2,3].forEach(m=>{$('#tcb'+m).value=S.tcb;$('#tci'+m).value=S.tci;});};});
+function tcOf(n){return[+$('#tcb'+n).value,+$('#tci'+n).value];}
+function clkMove(t){if(g.tc&&g.tc[0]&&g.ts){const now=Date.now();g.clkH.push({w:g.clk.w,b:g.clk.b});g.clk[t]=Math.max(0,g.clk[t]-(now-g.ts))+g.tc[1]*1000;g.ts=now;}}
+const fmt=ms=>{ms=Math.max(0,ms);const s=ms/1000;return s<20?s.toFixed(1):Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');};
+function clkLeft(c){const t=cur().t;return g.clk[c]-(c===t&&!g.over&&g.ts?Date.now()-g.ts:0);}
+function clkUI(){const on=g&&g.tc&&g.tc[0];$('#ctop').hidden=$('#cbot').hidden=!on;if(!on)return;const bot=g.flip?'b':'w',top=bot==='w'?'b':'w',nm=c=>g.mode==='ai'?(c===g.hc?'あなた':(g.train?'コーチ':'Quiet AI')):(c==='w'?'白':'黒');
+  [['#ctop',top],['#cbot',bot]].forEach(([id,c])=>{const el=$(id),v=clkLeft(c);el.firstElementChild.textContent=nm(c);const b=el.lastElementChild;b.textContent=fmt(v);b.className=(c===cur().t&&!g.over?'act ':'')+(v<10000?'low':'');});}
+function hasMat(c){const r=cur().b.filter(p=>p!=='.'&&(c==='w'?p<'a':p>'a')&&p.toUpperCase()!=='K');return r.length>1||(r.length===1&&!'NnBb'.includes(r[0]));}
+function flag(t){const w=t==='w'?'b':'w';g.busy=false;if(hasMat(w)){g.over=`時間切れ:${w==='w'?'白':'黒'}の勝ちです`;g.res=w==='w'?'1-0':'0-1';}else{g.over='時間切れ。相手の駒が足りず、引き分けです';g.res='1/2-1/2';}play('end');recordCurrent();render();}
+setInterval(()=>{if(!g||!g.tc||!g.tc[0]||g.over)return;const t=cur().t;if(clkLeft(t)<=0){g.clk[t]=0;flag(t);return;}clkUI();},200);
+function bookMove(s,gg,e){const mp=Math.round(Math.min(12,Math.max(2,e/120))),san=QCBook.pick(gg.sans,mp);return san?E.legal(s).find(m=>E.san(s,m).replace(/[+#]/g,'')===san)||null:null;}
+/* settings: custom colors, piece style, fonts, PWA */
+S.cc=S.cc||{};S.ps=S.ps||'classic';S.font=S.font||'yu';
+const FF={yu:'"Yu Gothic","游ゴシック",system-ui,sans-serif',sans:'"Hiragino Sans","Noto Sans JP","Meiryo",system-ui,sans-serif',mincho:'"Yu Mincho","游明朝","Hiragino Mincho ProN","Noto Serif JP",serif',mono:'ui-monospace,"SF Mono",Consolas,monospace'};
+function applyCC(){const r=document.documentElement.style,m={ac:'--ac',bg:'--bg',tx:'--tx',li:'--li',da:'--da'};theme();for(const k in m)if(S.cc[k])r.setProperty(m[k],S.cc[k]);
+  $$('#cpk input').forEach(i=>{i.value=S.cc[i.dataset.c]||toHex(getComputedStyle(document.documentElement).getPropertyValue(m[i.dataset.c]).trim());});}
+function toHex(v){if(/^#[0-9a-f]{6}$/i.test(v))return v;if(/^#[0-9a-f]{3}$/i.test(v))return '#'+[...v.slice(1)].map(x=>x+x).join('');return '#888888';}
+$('#cpk').oninput=e=>{const i=e.target;if(!i.dataset.c)return;S.cc[i.dataset.c]=i.value;save();applyCC2();};
+function applyCC2(){const r=document.documentElement.style,m={ac:'--ac',bg:'--bg',tx:'--tx',li:'--li',da:'--da'};for(const k in m)if(S.cc[k])r.setProperty(m[k],S.cc[k]);}
+$('#creset').onclick=()=>{S.cc={};save();['--bg','--tx'].forEach(k=>document.documentElement.style.removeProperty(k));applyCC();};
+const _th=theme;theme=function(){_th();applyCC2();};
+function psUI(){document.documentElement.dataset.ps=S.ps;const N=[['classic','クラシック','標準の形'],['line','線画','白黒を、線と淡い色で'],['soft','やわらか','丸みのある太い線'],['letter','レター','文字で覚える']];
+  $('#psl').innerHTML=N.map(x=>`<button class="psc ${S.ps===x[0]?'on':''}" data-s="${x[0]}" style="flex-direction:column;align-items:flex-start;height:auto"><span class="pv pv-${x[0]}"><span class="pc w">${pcs('n',x[0])}</span><span class="pc b">${pcs('q',x[0])}</span></span><b>${x[1]}</b><small>${x[2]}</small></button>`).join('');}
+$('#psl').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.ps=b.dataset.s;save();psUI();if(g)render();if(rv)revUI();};
+/* fonts (stored in IndexedDB) */
+function idb(){return new Promise((res,rej)=>{const q=indexedDB.open('qcfonts',1);q.onupgradeneeded=()=>q.result.createObjectStore('f');q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+async function idbSet(k,v){const d=await idb();return new Promise((res,rej)=>{const t=d.transaction('f','readwrite');t.objectStore('f').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}
+async function idbGet(k){const d=await idb();return new Promise((res,rej)=>{const q=d.transaction('f').objectStore('f').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}
+async function idbDel(k){const d=await idb();return new Promise(res=>{const t=d.transaction('f','readwrite');t.objectStore('f').delete(k);t.oncomplete=res;});}
+let uf=null;
+function fontUI(){const o=[['yu','游ゴシック(標準)'],['sans','ゴシック・すっきり'],['mincho','明朝'],['mono','等幅']];if(uf)o.push(['user','読み込んだフォント: '+uf.name]);
+  $('#fsel').innerHTML=o.map(x=>`<option value="${x[0]}" ${S.font===x[0]?'selected':''}>${x[1]}</option>`).join('');$('#fdel').hidden=!uf;document.documentElement.style.fontFamily=(S.font==='user'&&uf?'"QCUser",':'')+FF[S.font==='user'?'yu':S.font];}
+$('#fsel').onchange=()=>{S.font=$('#fsel').value;save();fontUI();};
+async function addFont(f){if(!f)return;$('#fmsg').textContent='読み込んでいます…';try{if(!/\.(ttf|otf|woff2?)$/i.test(f.name))throw new Error('TTF / OTF / WOFF のファイルを選んでください');const buf=await f.arrayBuffer(),ff=new FontFace('QCUser',buf);await ff.load();document.fonts.add(ff);uf={name:f.name.replace(/\.[^.]+$/,'')};await idbSet('user',{name:uf.name,buf});S.font='user';save();fontUI();$('#fmsg').textContent='フォントを読み込みました。この端末に保存されます。';}catch(e){$('#fmsg').textContent='読み込めませんでした: '+(e.message||'ファイルを確認してください');}}
+$('#fpick').onclick=()=>$('#ffile').click();$('#ffile').onchange=()=>addFont($('#ffile').files[0]);
+const dz=$('#fdrop');['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('on');}));['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('on');}));dz.addEventListener('drop',e=>addFont(e.dataTransfer.files[0]));
+$('#fdel').onclick=()=>ask('読み込んだフォントを削除しますか?',async()=>{await idbDel('user');uf=null;if(S.font==='user')S.font='yu';save();fontUI();$('#fmsg').textContent='削除しました。';});
+(async()=>{try{const r=await idbGet('user');if(r){const ff=new FontFace('QCUser',r.buf);await ff.load();document.fonts.add(ff);uf={name:r.name};}}catch(e){}fontUI();})();
+/* PWA */
+if('serviceWorker' in navigator){const okp=location.protocol==='https:'||((location.hostname==='localhost'||location.hostname==='127.0.0.1')&&/[?&]sw=1/.test(location.search));if(okp)navigator.serviceWorker.register('sw.js').catch(()=>{});}
+let ipr=null;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ipr=e;$('#inst').hidden=false;});$('#inst').onclick=()=>{if(ipr){ipr.prompt();ipr=null;$('#inst').hidden=true;}};
+$('#upd').onclick=async()=>{try{if('caches' in window)await Promise.all((await caches.keys()).map(k=>caches.delete(k)));if('serviceWorker' in navigator)await Promise.all((await navigator.serviceWorker.getRegistrations()).map(r=>r.update()));}catch(e){}location.reload();};
+psUI();applyCC();thUI();lvUI();show('home');
 })();
