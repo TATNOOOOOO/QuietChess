@@ -54,12 +54,12 @@ function render(last){
   $('#mv').innerHTML=g.sans.map((x,i)=>i%2?`<span>${x}</span>`:`<i>${i/2+1}.</i><span>${x}</span>`).join('');$('#mv').scrollTop=1e5;
   $('#draw').hidden=g.mode!=='local'||!!g.over;$('#res').hidden=!!g.over;$('#undo').disabled=g.busy||g.sans.length<(g.mode==='ai'?(g.hc==='w'?2:3):1)&&true;
   if(g.mode==='ai'&&!g.over&&g.sans.length===0)$('#undo').disabled=true;
-  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;
+  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;$('#coach').hidden=!g.train;if(g.train&&g.va&&g.va.ply===g.sans.length)addBadge();
 }
 function doMove(m,na){const s=cur(),cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
   const n=rep();let r=E.status(ns);if(!r&&n>=3)r='repetition';const ck=E.inCheck(ns);
   if(r)finish(r);render(na?null:m);play(r?'end':ck?'check':cap?'capture':'move');
-  if(!r&&g.mode==='ai'&&ns.t!==g.hc)aiMove();}
+  if(!r&&g.mode==='ai'&&ns.t!==g.hc){if(g.train)coachEval(s,m,ns,aiMove);else aiMove();}}
 function finish(r){const s=cur(),W=s.t==='w'?'黒':'白';
   g.over={checkmate:`詰み:${W}の勝ちです`,stalemate:'ステイルメイトで引き分けです',repetition:'同一局面が3回現れ、引き分けです',fifty:'50手ルールで引き分けです',insufficient:'駒が足りず、引き分けです',agreed:'合意により引き分けです'}[r]||r;g.res=r==='checkmate'?(s.t==='w'?'0-1':'1-0'):'1/2-1/2';recordCurrent();}
 function aiMove(){g.busy=true;$('#st').textContent='AIが考えています…';$('#undo').disabled=true;const gg=g;setTimeout(()=>{if(g!==gg||g.over)return;const s=cur(),done=m=>{if(g!==gg||g.over)return;g.busy=false;doMove(m||QCAI.pick(s,gg.elo));};
@@ -94,10 +94,10 @@ $('#draw').onclick=()=>ask('引き分けを提案し、合意しますか?(一�
 $('#new').onclick=()=>{const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
 /* panels */
 const TT={chk:'棋力チェック',home:'ホーム',train:'トレーニング',ai:'AI対局',tact:'タクティクス問題',priv:'プライベート対局',map:'学習マップ',rec:'対局の記録',set:'カスタマイズ'};
-const SOON={train:'基本的な駒損の確認と、コーチによる一手ごとの解説を用意します。',map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
+const SOON={map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
 function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':(id==='pz'||id==='sr')?'tact':id;if(ss&&!ss.end&&id!=='pz'){clearInterval(ss.tm);ss.end=true;}
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
- if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo'+(S.meas?'(測定済み)':'(未測定の仮の値)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
+ if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='train')tlUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo'+(S.meas?'(測定済み)':'(未測定の仮の値)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
 $$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
@@ -117,8 +117,8 @@ $('#vol').onchange=()=>play('move');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GK='qcg1';let GS=[];try{GS=JSON.parse(localStorage.getItem(GK)||'[]')}catch(e){}
 const saveG=()=>{try{localStorage.setItem(GK,JSON.stringify(GS.slice(0,60)))}catch(e){}};
-function recordCurrent(){if(g&&g.chk&&g.over&&g.res&&g.res!=='*'&&!g.chkDone){g.chkDone=1;chkGameEnd();}if(!g||!g.sans.length||g.saved)return;g.saved=1;const ai=g.mode==='ai';GS.unshift({id:Date.now(),date:new Date().toISOString().slice(0,10),mode:g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
-function listUI(){$('#gl').innerHTML=GS.length?GS.map(r=>`<div class="card gl"><div><b>${esc(r.title)}</b><br><small>${{ai:'AI対局',local:'一台対局',pgn:'読込棋譜'}[r.mode]||''} · ${esc(r.date)} · ${r.sans.length}手</small></div><span class="sp"></span><button data-v="${r.id}" data-ic="play">振り返る</button><button class="dg" data-d="${r.id}" data-ic="trash">削除</button></div>`).join(''):'<div class="card">まだ記録がありません。対局を終えると、ここに保存されます。</div>';
+function recordCurrent(){if(g&&g.chk&&g.over&&g.res&&g.res!=='*'&&!g.chkDone){g.chkDone=1;chkGameEnd();}if(!g||!g.sans.length||g.saved)return;g.saved=1;const ai=g.mode==='ai';GS.unshift({id:Date.now(),date:new Date().toISOString().slice(0,10),mode:g.train?'train':g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
+function listUI(){$('#gl').innerHTML=GS.length?GS.map(r=>`<div class="card gl"><div><b>${esc(r.title)}</b><br><small>${{ai:'AI対局',train:'トレーニング',local:'一台対局',pgn:'読込棋譜'}[r.mode]||''} · ${esc(r.date)} · ${r.sans.length}手</small></div><span class="sp"></span><button data-v="${r.id}" data-ic="play">振り返る</button><button class="dg" data-d="${r.id}" data-ic="trash">削除</button></div>`).join(''):'<div class="card">まだ記録がありません。対局を終えると、ここに保存されます。</div>';
   $$('#gl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));}
 $('#gl').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.v)openRev(+b.dataset.v);if(b.dataset.d)ask('この記録を削除しますか?(元に戻せません)',()=>{GS=GS.filter(x=>x.id!==+b.dataset.d);saveG();listUI();});};
 $('#impb').onclick=()=>{$('#ie').textContent='';$('#imp').showModal();};
@@ -127,7 +127,7 @@ $('#pgo').onclick=()=>{try{const p=QCPGN.parse($('#pt').value);GS.unshift({id:Da
 const BG={brilliant:['!!','#2f8f83','Brilliant!!・妙手'],great:['!','#5b7db1','Great!・重要手'],good:['!','#6a9a4a','好手'],inacc:['?!','#b8964a','疑問手'],mistake:['?','#cc8a3f','悪手'],blunder:['??','#c0443a','大きな見落とし']};
 let rv=null;
 function openRev(id){const r=GS.find(x=>x.id===id);if(!r)return;let p;try{p=QCPGN.parse(QCPGN.toPGN(r));}catch(e){return;}
-  rv={r,st:p.states,mv:p.moves,i:p.moves.length,an:r.an||null,flip:r.mode==='ai'&&r.black==='あなた',sel:-1};$('#rvt').textContent=r.title;show('rev');if(rv.an)revUI();else runAN();}
+  rv={r,st:p.states,mv:p.moves,i:p.moves.length,an:r.an||null,flip:(r.mode==='ai'||r.mode==='train')&&r.black==='あなた',sel:-1};$('#rvt').textContent=r.title;show('rev');if(rv.an)revUI();else runAN();}
 function anFail(){if(!rv)return;rv.fail=1;$('#ld').hidden=true;revUI();}
 function runAN(){const me=rv;$('#ld').hidden=false;$('#pgb').value=0;$('#lp').textContent='0%';revUI();let w,ok=false;
   try{w=new Worker('stockfish-19-lite-single.js');}catch(e){return anFail();}
@@ -143,7 +143,7 @@ function revUI(anim){if(!rv)return;const V=rv.v,s=V?V.st[V.st.length-1]:rv.st[rv
   const tg=rv.sel>=0?E.legal(s).filter(m=>m.from===rv.sel):[];
   $('#rbd').innerHTML=bhtml(s,rv.flip,last,an,rv.sel,tg);$('#rrk').innerHTML=(rv.flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(x=>`<span>${x}</span>`).join('');$('#rfl').innerHTML=(rv.flip?'hgfedcba':'abcdefgh').split('').map(x=>`<span>${x}</span>`).join('');
   if(anim)animMove($('#rbd'),rv.flip,anim.m,anim.rev);
-  $('#rvx').hidden=!V;$('#rs').max=n;$('#rs').value=rv.i;
+  $('#rvx').hidden=!V;$('#rwhy').hidden=!(V?V.mv.length:rv.i);$('#rs').max=n;$('#rs').value=rv.i;
   $('#rn').textContent=V?`${rv.i}手目から変化を確認中`:`${rv.i} / ${n} 手`+(rv.i?`(${rv.i%2?'白':'黒'}:${rv.r.sans[rv.i-1]})`:'');
   if(V)$('#cm').textContent='変化: '+V.sans.map((x,k)=>{const p=rv.i+k;return(p%2===0?(p/2+1)+'. ':(k===0?(Math.ceil(p/2))+'... ':''))+x;}).join(' ')+'。'+(an?cmText(an):rv.eb?'評価にはStockfishが必要です。':'評価中…');
   else $('#cm').textContent=an?cmText(an):rv.fail?'解析できませんでした(Stockfishを読み込めません)。判定なしで手順を確認できます。':'';
@@ -158,7 +158,7 @@ function vEng(){if(ve)return Promise.resolve(ve);return new Promise((res,rej)=>{
 function rvMove(m,na){const o=rv;if(!o.v)o.v={st:[o.st[o.i]],mv:[],sans:[],an:[]};const v=o.v,s=v.st[v.st.length-1],cap=s.b[m.to]!=='.'||m.fl==='ep';
   v.sans.push(E.san(s,m));v.mv.push(m);v.st.push(E.make(s,m));v.an.push(null);o.sel=-1;revUI(na?null:{m,rev:false});play(cap?'capture':'move');
   const k=v.mv.length-1,s0=v.st[k],s1=v.st[k+1];
-  o.q=(o.q||Promise.resolve()).then(()=>vEng().then(eng=>Promise.race([QCAN.analyze([s0,s1],[m],eng,{depth:12}),new Promise((_,rj)=>setTimeout(rj,25000))])))
+  o.q=(o.q||Promise.resolve()).then(()=>vRun(eng=>Promise.race([QCAN.analyze([s0,s1],[m],eng,{depth:12}),new Promise((_,rj)=>setTimeout(rj,25000))])))
    .then(r=>{v.an[k]=r[0];if(rv===o&&o.v===v)revUI();}).catch(()=>{o.eb=1;if(rv===o&&o.v===v)revUI();});}
 attach($('#rbd'),{ok:()=>rv&&$('#ld').hidden,st:()=>rv.v?rv.v.st[rv.v.st.length-1]:rv.st[rv.i],get sel(){return rv.sel},set sel(v){rv.sel=v},paint:()=>revUI(),move:(m,na)=>rvMove(m,na)});
 $('#rvx').onclick=()=>{rv.v=null;rv.sel=-1;revUI();};
@@ -234,7 +234,7 @@ $('#tgo').onclick=()=>sStart();$('#srag').onclick=()=>sStart(ss.o);$('#pzs').onc
 $('#srl').onclick=e=>{const b=e.target.closest('button');if(!b)return;ctx='guide';gback='sess';show('pz');pzLoad(ss.res[+b.dataset.g].p,true);};
 $('#pzg').onclick=()=>{const p=tp.p;gback=ctx;ctx='guide';pzLoad(p,true);};
 $('#pzback').onclick=()=>{const c=ctx;tp=null;if(c==='guide'&&gback==='sess'){ctx='sess';show('sr');}else show('tact');};
-window._qc={get g(){return g},get tp(){return tp},get ss(){return ss}};
+window._qc={get wv(){return wv},get g(){return g},get tp(){return tp},get ss(){return ss}};
 /* rating check */
 const KK='qck1',KHK='qckh1';let K=null,KH=[];try{K=JSON.parse(localStorage.getItem(KK)||'null');KH=JSON.parse(localStorage.getItem(KHK)||'[]')}catch(e){}
 const saveK=()=>{try{localStorage.setItem(KK,JSON.stringify(K));localStorage.setItem(KHK,JSON.stringify(KH.slice(0,30)))}catch(e){}};
@@ -264,5 +264,61 @@ $('#ckn').onclick=()=>show('chk');
 function chkGameEnd(){if(!K)return;const w=g.hc==='w',sc=g.res==='1/2-1/2'?.5:((g.res==='1-0')===w?1:0);K.games.push({sc,elo:g.elo});K.est=clampE(K.est+30*(2*sc-1));
   if(K.phase==='games'&&K.games.length>=3){K.phase='done';ckFin(true);}else if(K.phase==='done')ckFin(false);saveK();}
 function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;S.meas=1;save();}
+/* training coach + evaluation detail */
+let vq=Promise.resolve();function vRun(fn){const p=vq.then(()=>vEng()).then(fn);vq=p.catch(()=>{});return p;}
+const PN={p:'ポーン',n:'ナイト',b:'ビショップ',r:'ルーク',q:'クイーン',k:'キング'},pnm=p=>PN[p.toLowerCase()];
+const CL=[['Gentle','とてもやさしく',-150],['Calm','やさしく',-75],['Even','いつもどおり',0],['Step','少し上',75],['Stretch','しっかり',150],['Custom','自分で決める',null]];let tl=2;
+function tlUI(){$('#clv').innerHTML=CL.map((l,i)=>`<button class="${i===tl?'on':''}" data-l="${i}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');$('#clc').hidden=tl!==5;
+  const t=tl===5?+$('#cle').value:S.elo+CL[tl][2];$('#cld').textContent='コーチの目標:'+Math.max(100,t||600)+' Elo(あなたの推定 '+S.elo+' Elo'+(S.meas?'':'・未測定の仮の値')+')';}
+$('#clv').onclick=e=>{const b=e.target.closest('button');if(b){tl=+b.dataset.l;tlUI();}};$('#cle').oninput=tlUI;
+$('#cgo').onclick=()=>{const hc=$('#ccol').value==='r'?(Math.random()<.5?'w':'b'):$('#ccol').value,t=tl===5?+$('#cle').value:S.elo+CL[tl][2];newGame('ai',hc,clampE(t||600));g.train=1;g.va=null;render();};
+function addBadge(){const b=BG[g.va.an.cls];if(!b||g.va.an.cls==='good')return;const ord=[...Array(64).keys()];if(g.flip)ord.reverse();const c=$('#bd').children[ord.indexOf(g.va.m.to)];if(c&&!c.querySelector('.bg'))c.insertAdjacentHTML('beforeend',`<span class="bg" style="background:${b[1]}">${b[0]}</span>`);}
+function coachEval(s0,m,ns,next){const gg=g,ply=g.sans.length;g.busy=true;$('#undo').disabled=true;$('#st').textContent='コーチが確認しています…';
+  const fin=an=>{if(g!==gg)return;g.busy=false;$('#undo').disabled=g.sans.length<2;if(an){g.va={ply,an,s0,m};const b=BG[an.cls];
+    $('#cv').innerHTML=b?`<span class="dot" style="background:${b[1]}">${b[0]}</span><b>${b[2]}</b>`:'<b>唯一の合法手</b>';
+    $('#ct').textContent=an.cls==='brilliant'?'駒を犠牲にしても形勢を保つ、素晴らしい手です。':an.cls==='great'?'この局面で、ほぼ唯一の良い手でした。':['inacc','mistake','blunder'].includes(an.cls)?`もう少しよい候補がありました(最善: ${an.bestSan})。「待った」で戻れます。`:an.loss===0?'最善手です。':'良い手です。';$('#cw').hidden=false;addBadge();}
+   else{g.va=null;$('#cv').innerHTML='';$('#ct').textContent='コーチの評価にはStockfishが必要です(公開したサイトで動作します)。対局は続けられます。';$('#cw').hidden=true;}next();};
+  vRun(eng=>Promise.race([QCAN.analyze([s0,ns],[m],eng,{depth:12}),new Promise((_,j)=>setTimeout(j,15000))])).then(r=>fin(r[0])).catch(()=>fin(null));}
+$('#cw').onclick=()=>{if(g&&g.va)openWhy({s0:g.va.s0,m:g.va.m,an:g.va.an,flip:g.flip});};
+$('#rwhy').onclick=()=>{const V=rv.v;if(V&&V.mv.length){const k=V.mv.length-1;openWhy({s0:V.st[k],m:V.mv[k],an:V.an[k],flip:rv.flip});}else if(rv.i)openWhy({s0:rv.st[rv.i-1],m:rv.mv[rv.i-1],an:rv.an&&rv.an[rv.i-1],flip:rv.flip});};
+let wv=null;
+function lineStates(s0,u){const st=[s0],mv=[];let s=s0;for(const x of u){const m=E.fromUci(s,x);if(!m)break;mv.push(m);s=E.make(s,m);st.push(s);}return{st,mv};}
+async function openWhy(c){wv={c,tab:'best',k:0,guide:0,sel:-1,flip:c.flip};$('#why').showModal();$('#wtx').textContent='解析しています…';$('#wpv').innerHTML='';wdraw();let an=c.an;
+  try{if(!an||!an.bestPV||!an.playedPV){const s1=E.make(c.s0,c.m);an=(await vRun(eng=>Promise.race([QCAN.analyze([c.s0,s1],[c.m],eng,{depth:12}),new Promise((_,j)=>setTimeout(j,20000))])))[0];}}
+  catch(e){if(wv&&wv.c===c)$('#wtx').textContent='評価の理由にはStockfishが必要です(公開したサイトで動作します)。';return;}
+  if(!wv||wv.c!==c)return;wv.an=an;const pu=E.uci(c.m);wv.L={best:lineStates(c.s0,an.bestPV.length?an.bestPV:[an.best]),played:lineStates(c.s0,[pu].concat(an.playedPV||[]))};
+  for(const t of['best','played'])wv.L[t].san=wv.L[t].mv.map((m,i)=>E.san(wv.L[t].st[i],m));
+  wv.ex=explain(c.s0,c.m,an,wv.L.played);$('#wtx').innerHTML=wv.ex.html;wdraw();}
+function explain(s0,m,an,pl){const mover=s0.t,s1=pl.st[1],r1=pl.mv[1],mp=s0.b[m.from],mk=[];
+  const cap1=r1&&s1&&(s1.b[r1.to]!=='.'||r1.fl==='ep')?s1.b[r1.to]:null,mate=pl.st.slice(1).some(x=>E.status(x)==='checkmate'&&x.t===mover);let what,alt='';
+  if(an.cls==='brilliant')what=`${pnm(mp)}を取られる形ですが、その後も形勢は保たれます。駒を犠牲にして、狙いを実現する手です。`;
+  else if(an.cls==='great')what='この局面で、ほぼ唯一の良い手でした。他の手では、形勢が大きく悪くなります。';
+  else if(an.loss>3){what=mate?'この手のあと、数手で詰まされる流れになります。':cap1?`この手のあと、相手の ${E.san(s1,r1)} で、あなたの${pnm(cap1)}を取られます。`:'この手のあと、相手に有利な展開になります。';if(cap1)mk.push({sq:r1.to,c:'#c0443a'});}
+  else what=an.loss===0?'最善手です。':'最善に近い、良い手です。';
+  if(an.loss>3&&an.best){const bm=E.fromUci(s0,an.best);if(bm){const bs=E.make(s0,bm),bcap=s0.b[bm.to]!=='.'||bm.fl==='ep';
+    alt=`代わりに ${E.san(s0,bm)} が良い手でした。`+(E.status(bs)==='checkmate'?'一手で詰ませられます。':E.inCheck(bs)?'相手にチェックをかけられます。':bcap?`${pnm(s0.b[bm.to]!=='.'?s0.b[bm.to]:'p')}を取れます。`:cap1&&bm.from===r1.to?'取られる駒を、安全な場所へ動かせます。':cap1&&E.attacked(bs.b,r1.to,mover)?'取られる駒を、守れます。':'より良い形勢になります。');mk.push({sq:bm.to,c:'#5b8f4a'});}}
+  const wb=Math.round(QCAN.win(an.cp)),res=an.loss>0?`勝率の見積もり: 指した手 ${Math.round(wb-an.loss)}% → 最善 ${wb}%。`:`勝率の見積もり: ${wb}%。`;
+  return{html:`<p><b>何が起きたか</b><br>${what}</p>${alt?`<p><b>代わりの手</b><br>${alt}</p>`:''}<p><b>結果</b><br>${res}右の手順は、有限の探索による一例です。</p>`,mk};}
+function arrow(f,t,c,flip){const o=i=>flip?63-i:i,x=i=>(o(i)&7)+.5,y=i=>(o(i)>>3)+.5,x1=x(f),y1=y(f),x2=x(t),y2=y(t),d=Math.hypot(x2-x1,y2-y1)||1,ux=(x2-x1)/d,uy=(y2-y1)/d,ex=x2-ux*.32,ey=y2-uy*.32;
+  return `<line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${c}" stroke-width=".16" stroke-linecap="round" opacity=".85"/><polygon points="${x2},${y2} ${ex-uy*.17},${ey+ux*.17} ${ex+uy*.17},${ey-ux*.17}" fill="${c}" opacity=".9"/>`;}
+function wdraw(anim){if(!wv)return;const L=wv.L&&wv.L[wv.tab],f=wv.flip,gd=wv.guide===1;let s=L?L.st[wv.k]:wv.c.s0,last=L&&wv.k?L.mv[wv.k-1]:null;const tg=gd&&wv.sel>=0?E.legal(s).filter(m=>m.from===wv.sel):[];
+  $('#wbd').innerHTML=bhtml(s,f,last,null,gd?wv.sel:-1,tg);$('#wrk').innerHTML=(f?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(x=>`<span>${x}</span>`).join('');$('#wfl').innerHTML=(f?'hgfedcba':'abcdefgh').split('').map(x=>`<span>${x}</span>`).join('');
+  let sv='';const GR='#5b8f4a',BL='#4f7fb0',RD='#c0443a';
+  if(L){if(wv.k===0&&!gd){const bm=wv.an.best&&E.fromUci(wv.c.s0,wv.an.best),pm=wv.c.m;if(bm&&E.uci(bm)!==E.uci(pm))sv+=arrow(bm.from,bm.to,GR,f);sv+=arrow(pm.from,pm.to,BL,f);(wv.ex?wv.ex.mk:[]).forEach(q=>{const o=f?63-q.sq:q.sq;sv+=`<rect x="${(o&7)+.06}" y="${(o>>3)+.06}" width=".88" height=".88" rx=".12" fill="none" stroke="${q.c}" stroke-width=".09"/>`;});}
+    else if(gd&&wv.k<L.mv.length){const e=L.mv[wv.k];sv+=arrow(e.from,e.to,wv.tab==='best'?GR:BL,f);}
+    else if(last)sv+=arrow(last.from,last.to,wv.tab==='best'?GR:(wv.k%2===1?BL:RD),f);}
+  $('#war').innerHTML=sv;if(anim)animMove($('#wbd'),f,anim.m,anim.rev);
+  $('#wn').textContent=L?`${wv.k} / ${L.mv.length}`:'';$('#wpv').innerHTML=L?L.san.map((x,i)=>`<span style="padding:2px 6px;border-radius:8px;${i+1===wv.k?'background:var(--li)':''}">${i%2===0&&s0t(L)==='w'?(Math.floor(i/2)+1)+'. ':''}${x}</span>`).join(' '):'';
+  $$('.wt').forEach(b=>b.classList.toggle('on',b.dataset.w===wv.tab));}
+const s0t=L=>L.st[0].t;
+function wstep(d){const L=wv&&wv.L&&wv.L[wv.tab];if(!L||wv.guide===1)return;const nk=wv.k+d;if(nk<0||nk>L.mv.length)return;wv.k=nk;wdraw({m:d>0?L.mv[nk-1]:L.mv[nk],rev:d<0});}
+$('#w1').onclick=()=>wstep(-1);$('#w2').onclick=()=>wstep(1);
+$$('.wt').forEach(b=>b.onclick=()=>{if(!wv)return;wv.tab=b.dataset.w;wv.k=0;wv.guide=0;wv.sel=-1;wdraw();});
+$('#wc').onclick=()=>{$('#why').close();wv=null;};$('#why').addEventListener('close',()=>{wv=null;});
+$('#wg').onclick=()=>{if(!wv||!wv.L)return;wv.guide=1;wv.k=0;wv.sel=-1;$('#wtx').insertAdjacentHTML('afterbegin','<p id="wgm" style="color:var(--ac)">矢印の手を、盤の上で指してみましょう。</p>');wdraw();};
+attach($('#wbd'),{ok:()=>wv&&wv.guide===1&&wv.L&&wv.L[wv.tab].st[wv.k]&&wv.k<wv.L[wv.tab].mv.length&&!wv.wait,st:()=>wv.L[wv.tab].st[wv.k],get sel(){return wv.sel},set sel(v){wv.sel=v},paint:()=>wdraw(),move:(m,na)=>{const L=wv.L[wv.tab],ex=L.mv[wv.k],g_=$('#wgm');
+  if(E.uci(m)!==E.uci(ex)){if(g_)g_.textContent='その手ではありません。矢印の手を指してみましょう。';wv.sel=-1;wdraw();return;}
+  wv.k++;wv.sel=-1;wdraw(na?null:{m,rev:false});play('move');if(wv.k>=L.mv.length){wv.guide=2;if(g_)g_.textContent='手順を確認できました。「元の本局へ戻る」で戻れます。';wdraw();return;}
+  wv.wait=1;setTimeout(()=>{if(!wv)return;wv.wait=0;const om=L.mv[wv.k];wv.k++;wdraw({m:om,rev:false});play('move');if(wv.k>=L.mv.length){wv.guide=2;if(g_)g_.textContent='手順を確認できました。「元の本局へ戻る」で戻れます。';wdraw();}},450);}});
 thUI();lvUI();show('home');
 })();
