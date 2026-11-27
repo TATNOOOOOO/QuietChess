@@ -1,6 +1,6 @@
 /* quietchess service worker. Bump VER when you want every device to drop its cached copy. */
-const VER='qc-v2';
-const CORE=['./','index.html','engine.js','ai.js','book.js','pgn.js','analyze.js','puzzles.js','app.js','puzzles.json','stockfish-19-lite-single.js','stockfish-19-lite-single.wasm','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png'];
+const VER='qc-v3';
+const CORE=['./','index.html','engine.js','ai.js','book.js','net.js','firebase-config.js','pgn.js','analyze.js','puzzles.js','app.js','puzzles.json','stockfish-19-lite-single.js','stockfish-19-lite-single.wasm','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png'];
 const STATIC=/\.(wasm|json)$|stockfish|icon|apple-touch|\.png$/;
 const put=(r,res)=>{if(res&&res.status===200){const c=res.clone();caches.open(VER).then(x=>x.put(r,c));}return res;};
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(VER).then(c=>Promise.allSettled(CORE.map(u=>c.add(u)))));});
