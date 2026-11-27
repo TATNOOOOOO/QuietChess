@@ -18,7 +18,7 @@ h1{font-size:26px;font-weight:500;margin:8px 0 4px}.sub{color:var(--mu);font-siz
 .lv{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
 .lv button{flex-direction:column;align-items:flex-start;gap:0;height:auto;padding:12px 14px;border-radius:16px;text-align:left}.lv b{font:500 18px Georgia,serif}.lv small{color:var(--mu)}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0}label{display:flex;gap:8px;align-items:center;color:var(--mu);font-size:15px}
-input[type=number],select{min-height:44px;padding:0 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);width:110px}select{width:auto}
+input[type=text],input[type=number],select{min-height:44px;padding:0 12px;border:1px solid var(--ln);border-radius:12px;background:var(--bg);width:110px}select{width:auto}
 .game{display:grid;grid-template-columns:minmax(0,560px) 1fr;gap:24px;align-items:start}@media(max-width:820px){.game{grid-template-columns:1fr}}
 .bw{width:100%;max-width:min(560px,calc(100vh - 96px));max-width:min(560px,calc(100dvh - 96px));margin:0 auto;display:grid;grid-template-columns:22px 1fr;grid-template-rows:auto 22px;gap:4px}
 .rk{display:grid;grid-template-rows:repeat(8,1fr);font-size:13px;color:var(--mu);text-align:center}.rk span,.fl span{display:flex;align-items:center;justify-content:center}
@@ -96,7 +96,13 @@ main{max-width:1040px;padding:28px 28px 48px}
 <section id="p-priv" class="pnl" hidden><div class="eyebrow">GOOD COMPANY, GOOD GAMES</div><h1>友だちと、盤を囲もう。</h1><p class="sub">一台で交互に指す・一人で両側を指すモードが使えます。</p>
 <div class="seg"><button class="pt on" data-pt="local" data-ic="users">一台で対局・一人回し</button><button class="pt" data-pt="online" data-ic="lock">友だちとオンライン</button></div>
 <div class="card" id="pt-local"><p class="sub">交互に指します。持ち時間の設定は、次の段階で追加します。</p><div class="row"><label>持ち時間 <select id="tcb3"></select></label><label>加算 <select id="tci3"></select></label></div><button class="pri" id="golocal" data-ic="play">対局をはじめる</button></div>
-<div class="card" id="pt-online" hidden>オンライン対局は準備中です。サーバー(Firebase)の準備ができてから追加します。</div></section>
+<div class="card" id="pt-online" hidden>
+<div id="on-form"><h2 class="h2">コードで、友だちを招待。</h2><p class="sub">同じサイトを開いてコードを入力します。棋譜と時計は、サーバーの時刻で同期します。</p>
+<div class="row"><label>表示名 <input type="text" id="onn" maxlength="12" placeholder="あなた"></label></div>
+<div class="row"><label>持ち時間 <select id="tcb4"></select></label><label>加算 <select id="tci4"></select></label><label>あなたの色 <select id="onc"><option value="r">ランダム</option><option value="w">白</option><option value="b">黒</option></select></label></div>
+<button class="pri" id="onmk" data-ic="plus">ルームを作る</button>
+<div class="row" style="margin-top:22px"><label>または、招待コードで参加 <input type="text" id="onj" maxlength="6" placeholder="6文字のコード" style="text-transform:uppercase"></label><button id="onjb" data-ic="play">参加する</button></div><p class="sub" id="onm"></p></div>
+<div id="on-wait" hidden><div class="eyebrow">PRIVATE ROOM</div><div class="big" id="onc2" style="letter-spacing:.18em"></div><p class="sub" id="onti"></p><div class="row"><button id="oncp" data-ic="dl">招待リンクをコピー</button><button id="onx" data-ic="back">別のルームへ</button></div><p class="sub">友だちの参加を待っています。参加すると、時計が始まります。</p></div></div></section>
 <section id="p-rec" class="pnl" hidden><div class="eyebrow">EVERY GAME LEAVES SOMETHING</div><h1>一局の中に、次のヒント。</h1><p class="sub">保存した対局を、一手ずつ振り返りましょう。記録はこの端末に保存されます。</p><div class="row"><button id="impb" data-ic="plus">PGNを読み込んで分析</button></div><div id="gl"></div></section>
 <section id="p-rev" class="pnl" hidden><div class="row"><button id="rvb" data-ic="back">記録の一覧に戻る</button></div><h1 id="rvt"></h1>
 <div class="card" id="ld" hidden><p>全手を解析しています… <span id="lp">0%</span></p><progress id="pgb" max="1" value="0" style="width:100%"></progress></div>
@@ -133,12 +139,13 @@ main{max-width:1040px;padding:28px 28px 48px}
 <div class="row" style="margin-top:28px"><label>今日の一問の難度 <select id="doff"></select></label></div><p class="sub">あなたの棋力を基準に、どれだけ難しくするか(標準は±0)。今日すでに出題済みの問題は、明日から反映されます。</p></div></section>
 <section id="p-game" class="pnl" hidden><div class="game"><div><div class="crow" id="ctop" hidden><span></span><b></b></div><div class="bw"><div class="rk" id="rk"></div><div class="bd" id="bd"></div><div class="fl" id="fl"></div></div><div class="crow" id="cbot" hidden><span></span><b></b></div></div>
 <div><div class="card" id="coach" hidden><div class="eyebrow">YOUR QUIET COACH</div><div class="row" id="cv" style="margin:6px 0"></div><p class="sub" id="ct" style="margin:0 0 8px"></p><button id="cw" data-ic="target" hidden>評価の理由</button></div><div class="card"><p class="st" id="st"></p><div class="row"><button id="undo" data-ic="undo">待った</button><button id="flip" data-ic="flip">盤を反転</button><button id="draw" data-ic="eq">引き分けを提案</button><button id="res" data-ic="flag" class="dg">投了</button></div>
-<ol class="mv" id="mv"></ol><button id="ckn" data-ic="target" hidden>棋力チェックへ戻る</button><button id="new" data-ic="plus">新しい対局</button></div></div></div></section>
+<ol class="mv" id="mv"></ol><button id="ckn" data-ic="target" hidden>棋力チェックへ戻る</button><button id="ana" data-ic="target" hidden>この対局をAI分析</button><button id="pgn" data-ic="dl" hidden>PGNをダウンロード</button><button id="new" data-ic="plus">新しい対局</button></div></div></div></section>
 </main></div></div>
 <dialog id="cf"><button class="x" data-ic="x" aria-label="閉じる"></button><p id="cft"></p><div class="row"><button id="cfo" data-ownsfx>OK</button></div></dialog>
 <dialog id="imp"><button class="x" data-ic="x" aria-label="閉じる"></button><p>PGNを貼り付けるか、ファイルを選んでください</p><textarea id="pt" placeholder="1. e4 e5 2. Nf3 ..."></textarea><div class="row"><input type="file" id="pf" accept=".pgn,.txt"></div><p id="ie" style="color:var(--rd)"></p><div class="row"><button class="pri" id="pgo" data-ic="play">読み込む</button></div></dialog>
 <dialog id="why" style="max-width:940px;width:94vw"><button class="x" data-ic="x" aria-label="閉じる"></button><div class="eyebrow">WHY THIS EVALUATION</div><h2 class="h2">評価の理由</h2>
 <div class="game" style="gap:18px"><div><div class="bw"><div class="rk" id="wrk"></div><div class="wb"><div class="bd" id="wbd"></div><svg class="ar" id="war" viewBox="0 0 8 8"></svg></div><div class="fl" id="wfl"></div></div><div class="row" style="justify-content:center"><button id="w1" data-ic="back" aria-label="一手戻る"></button><span id="wn"></span><button id="w2" data-ic="next" aria-label="一手進む"></button></div></div>
 <div><div id="wtx" style="font-size:15px"></div><div class="seg"><button class="wt on" data-w="best">よりよい候補</button><button class="wt" data-w="played">指した手の継続</button></div><div class="rmv" id="wpv" style="display:block;line-height:2"></div><div class="row"><button id="wg" data-ic="play">駒を動かしてガイドを試す</button><button id="wc" class="pri" data-ic="back">元の本局へ戻る</button></div></div></div></dialog>
+<dialog id="of"><button class="x" data-ic="x" aria-label="閉じる"></button><p id="oft"></p><div class="row"><button class="pri" id="ofy" data-ic="play">承諾する</button><button id="ofn" data-ic="x">辞退する</button></div></dialog>
 <dialog id="pm"><button class="x" data-ic="x" aria-label="閉じる"></button><p>成り先を選んでください</p><div class="pr" id="pp"></div></dialog>
-<script src="engine.js"></script><script src="book.js"></script><script src="ai.js"></script><script src="pgn.js"></script><script src="analyze.js"></script><script src="puzzles.js"></script><script src="app.js"></script></body></html>
+<script src="engine.js"></script><script src="net.js"></script><script src="firebase-config.js"></script><script src="book.js"></script><script src="ai.js"></script><script src="pgn.js"></script><script src="analyze.js"></script><script src="puzzles.js"></script><script src="app.js"></script></body></html>
