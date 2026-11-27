@@ -4,6 +4,7 @@ const IC={flip:'M4 8h13l-3-3M20 16H7l3 3',undo:'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0
 const ic=n=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${IC[n]}"/></svg>`;
 $$('[data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
 const TH=[['セージ','#e9ede4','#8c9f88','#6d826b'],['グラファイト','#e8e8e8','#9a9a9e','#55575c'],['サンド','#efe4d3','#b79a7a','#8c6d46'],['ダスク','#e3e7f1','#8a9ab2','#5f7090']];
+const eloTxtF=()=>S.meas?String(S.elo):'?';
 let S={elo:800,th:2,snd:1,vol:.5,meas:0};try{Object.assign(S,JSON.parse(localStorage.getItem('qc1')||'{}'))}catch(e){}if(!S.meas&&S.elo===540)S.elo=800;
 const save=()=>{try{localStorage.setItem('qc1',JSON.stringify(S))}catch(e){}};
 function theme(){const t=TH[S.th];const r=document.documentElement.style;r.setProperty('--li',t[1]);r.setProperty('--da',t[2]);r.setProperty('--ac',t[3]);}
@@ -98,15 +99,15 @@ const TT={chk:'棋力チェック',home:'ホーム',train:'トレーニング',a
 const SOON={map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
 function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.id!=='p-'+pid);const nav=id==='game'?(g.mode==='ai'?'ai':'priv'):id==='rev'?'rec':(id==='pz'||id==='sr')?'tact':id;if(ss&&!ss.end&&id!=='pz'){clearInterval(ss.tm);ss.end=true;}
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
- if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='train')tlUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo'+(S.meas?'(測定済み)':'(未測定の仮の値)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
+ if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='train')tlUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+eloTxtF()+' Elo'+(S.meas?(S.man?'(手入力)':'(測定済み)'):'(未測定)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.meas?S.elo:'';lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
 $$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';onlineUI();});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
 let lv=2;
 function lvUI(){$('#lv').innerHTML=LV.map((l,i)=>`<button class="${i===lv?'on':''}" data-l="${i}" title="${l[2]===null?'相手のEloを自分で決めます':'相手の目標Eloが、あなたより '+(l[2]>0?'+':'')+l[2]+' です'}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');
-  $('#cu').hidden=lv!==5;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];$('#elom').textContent=S.meas?'棋力チェックの結果です':'未測定の仮の値です。棋力チェックでより正確に。';$('#lvd').textContent='相手の目標:'+Math.max(100,t)+' Elo(暫定AI。序盤の定跡は未実装です)';}
+  $('#cu').hidden=lv!==5;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];$('#elom').textContent=S.meas?(S.man?'手入力の値です':'棋力チェックの結果です'):'未測定(?)です。AI相手の強さは、仮に800を基準にしています。';$('#lvd').textContent='相手の目標:'+Math.max(100,t)+' Elo'+(S.meas?'':'(あなたが未測定のため、仮の基準 800 から計算)');}
 $('#lv').onclick=e=>{const b=e.target.closest('button');if(!b)return;lv=+b.dataset.l;lvUI();};$('#celo').oninput=lvUI;
-$('#elo').value=S.elo;$('#elo').oninput=()=>{S.elo=Math.min(3000,Math.max(100,+$('#elo').value||540));save();lvUI();};
+$('#elo').value=S.meas?S.elo:'';$('#elo').placeholder='?';$('#elo').oninput=()=>{if($('#elo').value==='')return;S.elo=Math.min(3000,Math.max(100,+$('#elo').value||800));S.meas=1;S.man=1;save();lvUI();};
 $('#go').onclick=()=>{const hc=$('#col').value==='r'?(Math.random()<.5?'w':'b'):$('#col').value;const t=lv===5?+$('#celo').value:S.elo+LV[lv][2];newGame('ai',hc,Math.min(3000,Math.max(100,t||600)),tcOf(1));};
 $('#golocal').onclick=()=>newGame('local',null,0,tcOf(3));
 $('#th').innerHTML=TH.map((t,i)=>`<button data-t="${i}"><span style="display:inline-block;width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,${t[1]} 50%,${t[2]} 50%)"></span>${t[0]}</button>`).join('');
@@ -249,10 +250,10 @@ function chkUI(){const c=$('#ckc'),dis=PZ?'':'disabled';let t;
   c.innerHTML=t;$$('#ckc [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
   $('#ckh').innerHTML=KH.length?KH.map(r=>{const d=new Date(r.t);return `<div class="gl" style="padding:10px 0;border-bottom:1px solid var(--ln)"><b>${r.est} QC Elo</b><span>目安幅 ${r.lo}〜${r.hi}</span><small>${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} · ${r.n}問／${r.gn}局</small></div>`;}).join(''):'<p class="sub">まだ測定履歴がありません。</p>';}
 $('#ckc').onclick=e=>{const b=e.target.closest('button');if(!b)return;const A=b.dataset.a;
-  if(A==='start'||A==='restart'){K={phase:'quiz',z:{est:clampE(S.elo),step:300,n:0,hist:[],used:[]},games:[],prev:K&&K.phase==='done'?K.prev:S.elo,pm:K&&K.phase==='done'?K.pm:S.meas};saveK();qRun();}
+  if(A==='start'||A==='restart'){K={phase:'quiz',z:{est:clampE(S.elo),step:300,n:0,hist:[],used:[]},games:[],prev:K&&K.phase==='done'?K.prev:S.elo,pm:K&&K.phase==='done'?K.pm:S.meas,pman:K&&K.phase==='done'?K.pman:S.man};saveK();qRun();}
   else if(A==='qres')qRun();else if(A==='game')ckGame();else if(A==='back')show('ai');
   else if(A==='cancel')ask('この測定を取り消しますか?(いまの推定Eloは変わりません)',()=>{K=null;saveK();chkUI();});
-  else if(A==='undo')ask('この結果を取り消しますか?(推定Eloを測定前に戻します)',()=>{S.elo=K.prev;S.meas=K.pm||0;save();KH.shift();K=null;saveK();chkUI();});};
+  else if(A==='undo')ask('この結果を取り消しますか?(推定Eloを測定前に戻します)',()=>{S.elo=K.prev;S.meas=K.pm||0;S.man=K.pman||0;save();KH.shift();K=null;saveK();chkUI();});};
 function qRun(){ctx='quiz';show('pz');qNext();}
 function qNext(){if(!K||K.phase!=='quiz')return;if(QCPZ.qDone(K.z))return qFin();pzLoad(QCPZ.nearest(PZ,K.z.est,new Set(K.z.used),6),false);}
 function qFin(){const r=QCPZ.qResult(K.z);K.qEst=r.est;K.est=r.est;K.half0=r.half;K.phase='games';saveK();tp=null;show('chk');}
@@ -264,20 +265,20 @@ function ckGame(){const hc=K.games.length%2===0?'w':'b';newGame('ai',hc,clampE(K
 $('#ckn').onclick=()=>show('chk');
 function chkGameEnd(){if(!K)return;const w=g.hc==='w',sc=g.res==='1/2-1/2'?.5:((g.res==='1-0')===w?1:0);K.games.push({sc,elo:g.elo});K.est=clampE(K.est+30*(2*sc-1));
   if(K.phase==='games'&&K.games.length>=3){K.phase='done';ckFin(true);}else if(K.phase==='done')ckFin(false);saveK();}
-function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;S.meas=1;save();}
+function ckFin(first){const r={t:Date.now(),est:K.est,lo:clampE(K.est-halfNow()),hi:clampE(K.est+halfNow()),n:K.z.n,gn:K.games.length};if(first)KH.unshift(r);else KH[0]=r;S.elo=K.est;S.meas=1;S.man=0;save();}
 /* training coach + evaluation detail */
 let vq=Promise.resolve();function vRun(fn){const p=vq.then(()=>vEng()).then(fn);vq=p.catch(()=>{});return p;}
 const PN={p:'ポーン',n:'ナイト',b:'ビショップ',r:'ルーク',q:'クイーン',k:'キング'},pnm=p=>PN[p.toLowerCase()];
 const CL=[['Gentle','とてもやさしく',-150],['Calm','やさしく',-75],['Even','いつもどおり',0],['Step','少し上',75],['Stretch','しっかり',150],['Custom','自分で決める',null]];let tl=2;
 function tlUI(){$('#clv').innerHTML=CL.map((l,i)=>`<button class="${i===tl?'on':''}" data-l="${i}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');$('#clc').hidden=tl!==5;
-  const t=tl===5?+$('#cle').value:S.elo+CL[tl][2];$('#cld').textContent='コーチの目標:'+Math.max(100,t||600)+' Elo(あなたの推定 '+S.elo+' Elo'+(S.meas?'':'・未測定の仮の値')+')';}
+  const t=tl===5?+$('#cle').value:S.elo+CL[tl][2];$('#cld').textContent='コーチの目標:'+Math.max(100,t||600)+' Elo(あなたの推定 '+eloTxtF()+(S.meas?' Elo':'。未測定のため、仮の基準 800 から計算')+')';}
 $('#clv').onclick=e=>{const b=e.target.closest('button');if(b){tl=+b.dataset.l;tlUI();}};$('#cle').oninput=tlUI;
 $('#cgo').onclick=()=>{const hc=$('#ccol').value==='r'?(Math.random()<.5?'w':'b'):$('#ccol').value,t=tl===5?+$('#cle').value:S.elo+CL[tl][2];newGame('ai',hc,clampE(t||600),tcOf(2));g.train=1;g.va=null;render();};
 function addBadge(){const b=BG[g.va.an.cls];if(!b||g.va.an.cls==='good')return;const ord=[...Array(64).keys()];if(g.flip)ord.reverse();const c=$('#bd').children[ord.indexOf(g.va.m.to)];if(c&&!c.querySelector('.bg'))c.insertAdjacentHTML('beforeend',`<span class="bg" style="background:${b[1]}">${b[0]}</span>`);}
 function coachEval(s0,m,ns,next){const gg=g,ply=g.sans.length;g.busy=true;$('#undo').disabled=true;$('#st').textContent='コーチが確認しています…';
   const fin=an=>{if(g!==gg)return;g.busy=false;$('#undo').disabled=g.sans.length<2;if(an){g.va={ply,an,s0,m};const b=BG[an.cls];
     $('#cv').innerHTML=b?`<span class="dot" style="background:${b[1]}">${b[0]}</span><b>${b[2]}</b>`:'<b>唯一の合法手</b>';
-    $('#ct').textContent=an.cls==='brilliant'?'駒を犠牲にしても形勢を保つ、素晴らしい手です。':an.cls==='great'?'この局面で、ほぼ唯一の良い手でした。':['inacc','mistake','blunder'].includes(an.cls)?`もう少しよい候補がありました(最善: ${an.bestSan})。「待った」で戻れます。`:an.loss===0?'最善手です。':'良い手です。';$('#cw').hidden=false;addBadge();}
+    $('#ct').textContent=an.cls==='brilliant'?'駒を犠牲にしても形勢を保つ、素晴らしい手です。':an.cls==='great'?'この局面で、ほぼ唯一の良い手でした。':['inacc','mistake','blunder'].includes(an.cls)?((QCAN.flow(s0,m,an).short||'もう少しよい候補がありました。')+` 最善は ${an.bestSan} でした。「待った」で戻れます。`):an.loss===0?'最善手です。':'良い手です。';$('#cw').hidden=false;addBadge();}
    else{g.va=null;$('#cv').innerHTML='';$('#ct').textContent='コーチの評価にはStockfishが必要です(公開したサイトで動作します)。対局は続けられます。';$('#cw').hidden=true;}next();};
   vRun(eng=>Promise.race([QCAN.analyze([s0,ns],[m],eng,{depth:12}),new Promise((_,j)=>setTimeout(j,15000))])).then(r=>fin(r[0])).catch(()=>fin(null));}
 $('#cw').onclick=()=>{if(g&&g.va)openWhy({s0:g.va.s0,m:g.va.m,an:g.va.an,flip:g.flip});};
@@ -290,16 +291,17 @@ async function openWhy(c){wv={c,tab:'best',k:0,guide:0,sel:-1,flip:c.flip};$('#w
   if(!wv||wv.c!==c)return;wv.an=an;const pu=E.uci(c.m);wv.L={best:lineStates(c.s0,an.bestPV.length?an.bestPV:[an.best]),played:lineStates(c.s0,[pu].concat(an.playedPV||[]))};
   for(const t of['best','played'])wv.L[t].san=wv.L[t].mv.map((m,i)=>E.san(wv.L[t].st[i],m));
   wv.ex=explain(c.s0,c.m,an,wv.L.played);$('#wtx').innerHTML=wv.ex.html;wdraw();}
-function explain(s0,m,an,pl){const mover=s0.t,s1=pl.st[1],r1=pl.mv[1],mp=s0.b[m.from],mk=[];
-  const cap1=r1&&s1&&(s1.b[r1.to]!=='.'||r1.fl==='ep')?s1.b[r1.to]:null,mate=pl.st.slice(1).some(x=>E.status(x)==='checkmate'&&x.t===mover);let what,alt='';
+function flowHTML(tab,st){return '<div class="flow">'+st.map(s=>`<button data-t="${tab}" data-k="${s.k}"><b>${s.who}</b> ${esc(s.text)}</button>`).join('<span class="fa">↓</span>')+'</div>';}
+function explain(s0,m,an,pl){const F=QCAN.flow(s0,m,an),s1=pl.st[1],r1=pl.mv[1],mp=s0.b[m.from],mk=[],cap1=r1&&s1&&(s1.b[r1.to]!=='.'||r1.fl==='ep')?s1.b[r1.to]:null;let what,alt='';
   if(an.cls==='brilliant')what=`${pnm(mp)}を取られる形ですが、その後も形勢は保たれます。駒を犠牲にして、狙いを実現する手です。`;
   else if(an.cls==='great')what='この局面で、ほぼ唯一の良い手でした。他の手では、形勢が大きく悪くなります。';
-  else if(an.loss>3){what=mate?'この手のあと、数手で詰まされる流れになります。':cap1?`この手のあと、相手の ${E.san(s1,r1)} で、あなたの${pnm(cap1)}を取られます。`:'この手のあと、相手に有利な展開になります。';if(cap1)mk.push({sq:r1.to,c:'#c0443a'});}
+  else if(an.loss>3){what=(F.sumPlayed||'目立った駒損や詰みの筋はありませんが、局面の評価が下がります(駒の働きや形勢の面で、より良い手がありました)。')+' '+F.resPlayed;if(cap1)mk.push({sq:r1.to,c:'#c0443a'});}
   else what=an.loss===0?'最善手です。':'最善に近い、良い手です。';
-  if(an.loss>3&&an.best){const bm=E.fromUci(s0,an.best);if(bm){const bs=E.make(s0,bm),bcap=s0.b[bm.to]!=='.'||bm.fl==='ep';
-    alt=`代わりに ${E.san(s0,bm)} が良い手でした。`+(E.status(bs)==='checkmate'?'一手で詰ませられます。':E.inCheck(bs)?'相手にチェックをかけられます。':bcap?`${pnm(s0.b[bm.to]!=='.'?s0.b[bm.to]:'p')}を取れます。`:cap1&&bm.from===r1.to?'取られる駒を、安全な場所へ動かせます。':cap1&&E.attacked(bs.b,r1.to,mover)?'取られる駒を、守れます。':'より良い形勢になります。');mk.push({sq:bm.to,c:'#5b8f4a'});}}
+  if(an.loss>3&&an.best){const bm=E.fromUci(s0,an.best);if(bm){alt=F.sumBest||`代わりに ${an.bestSan} が良い手でした。`;mk.push({sq:bm.to,c:'#5b8f4a'});}}
   const wb=Math.round(QCAN.win(an.cp)),res=an.loss>0?`勝率の見積もり: 指した手 ${Math.round(wb-an.loss)}% → 最善 ${wb}%。`:`勝率の見積もり: ${wb}%。`;
-  return{html:`<p><b>何が起きたか</b><br>${what}</p>${alt?`<p><b>代わりの手</b><br>${alt}</p>`:''}<p><b>結果</b><br>${res}右の手順は、有限の探索による一例です。</p>`,mk};}
+  return{html:`<p><b>何が起きたか</b><br>${what}</p>${F.playedSteps.length>1?`<p style="margin-bottom:2px"><b>流れ</b>(押すと、盤で確認できます)</p>${flowHTML('played',F.playedSteps)}`:''}${alt?`<p style="margin-bottom:2px"><b>代わりの手</b><br>${alt}</p>${F.bestSteps.length>1?flowHTML('best',F.bestSteps):''}`:''}<p><b>結果</b><br>${res}右の手順は、有限の探索による一例です。</p>`,mk};}
+function sqmark(sq,c,f){const o=f?63-sq:sq;return `<rect x="${(o&7)+.06}" y="${(o>>3)+.06}" width=".88" height=".88" rx=".12" fill="none" stroke="${c}" stroke-width=".09"/>`;}
+$('#wtx').onclick=e=>{const b=e.target.closest('button[data-k]');if(!b||!wv||!wv.L)return;wv.tab=b.dataset.t;wv.k=+b.dataset.k;wv.guide=0;wv.sel=-1;const L=wv.L[wv.tab];wdraw(L&&L.mv[wv.k-1]?{m:L.mv[wv.k-1],rev:false}:null);};
 function arrow(f,t,c,flip){const o=i=>flip?63-i:i,x=i=>(o(i)&7)+.5,y=i=>(o(i)>>3)+.5,x1=x(f),y1=y(f),x2=x(t),y2=y(t),d=Math.hypot(x2-x1,y2-y1)||1,ux=(x2-x1)/d,uy=(y2-y1)/d,ex=x2-ux*.32,ey=y2-uy*.32;
   return `<line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${c}" stroke-width=".16" stroke-linecap="round" opacity=".85"/><polygon points="${x2},${y2} ${ex-uy*.17},${ey+ux*.17} ${ex+uy*.17},${ey-ux*.17}" fill="${c}" opacity=".9"/>`;}
 function wdraw(anim){if(!wv)return;const L=wv.L&&wv.L[wv.tab],f=wv.flip,gd=wv.guide===1;let s=L?L.st[wv.k]:wv.c.s0,last=L&&wv.k?L.mv[wv.k-1]:null;const tg=gd&&wv.sel>=0?E.legal(s).filter(m=>m.from===wv.sel):[];
@@ -307,7 +309,7 @@ function wdraw(anim){if(!wv)return;const L=wv.L&&wv.L[wv.tab],f=wv.flip,gd=wv.gu
   let sv='';const GR='#5b8f4a',BL='#4f7fb0',RD='#c0443a';
   if(L){if(wv.k===0&&!gd){const bm=wv.an.best&&E.fromUci(wv.c.s0,wv.an.best),pm=wv.c.m;if(bm&&E.uci(bm)!==E.uci(pm))sv+=arrow(bm.from,bm.to,GR,f);sv+=arrow(pm.from,pm.to,BL,f);(wv.ex?wv.ex.mk:[]).forEach(q=>{const o=f?63-q.sq:q.sq;sv+=`<rect x="${(o&7)+.06}" y="${(o>>3)+.06}" width=".88" height=".88" rx=".12" fill="none" stroke="${q.c}" stroke-width=".09"/>`;});}
     else if(gd&&wv.k<L.mv.length){const e=L.mv[wv.k];sv+=arrow(e.from,e.to,wv.tab==='best'?GR:BL,f);}
-    else if(last)sv+=arrow(last.from,last.to,wv.tab==='best'?GR:(wv.k%2===1?BL:RD),f);}
+    else if(last){sv+=arrow(last.from,last.to,wv.tab==='best'?GR:(wv.k%2===1?BL:RD),f);if(L.st[wv.k-1].b[last.to]!=='.')sv+=sqmark(last.to,RD,f);}}
   $('#war').innerHTML=sv;if(anim)animMove($('#wbd'),f,anim.m,anim.rev);
   $('#wn').textContent=L?`${wv.k} / ${L.mv.length}`:'';$('#wpv').innerHTML=L?L.san.map((x,i)=>`<span style="padding:2px 6px;border-radius:8px;${i+1===wv.k?'background:var(--li)':''}">${i%2===0&&s0t(L)==='w'?(Math.floor(i/2)+1)+'. ':''}${x}</span>`).join(' '):'';
   $$('.wt').forEach(b=>b.classList.toggle('on',b.dataset.w===wv.tab));}
@@ -330,8 +332,16 @@ function tcOf(n){return[+$('#tcb'+n).value,+$('#tci'+n).value];}
 function clkMove(t){if(g.mode!=='online'&&g.tc&&g.tc[0]&&g.ts){const now=Date.now();g.clkH.push({w:g.clk.w,b:g.clk.b});g.clk[t]=Math.max(0,g.clk[t]-(now-g.ts))+g.tc[1]*1000;g.ts=now;}}
 const fmt=ms=>{ms=Math.max(0,ms);const s=ms/1000;return s<20?s.toFixed(1):Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');};
 function clkLeft(c){const t=cur().t;return g.clk[c]-(c===t&&!g.over&&g.ts?Date.now()-g.ts:0);}
-function clkUI(){const on=g&&g.tc&&g.tc[0];$('#ctop').hidden=$('#cbot').hidden=!on;if(!on)return;const bot=g.flip?'b':'w',top=bot==='w'?'b':'w',nm=c=>g.mode==='ai'?(c===g.hc?'あなた':(g.train?'コーチ':'Quiet AI')):(g.names?g.names[c]:(c==='w'?'白':'黒'));
-  [['#ctop',top],['#cbot',bot]].forEach(([id,c])=>{const el=$(id),v=clkLeft(c);el.firstElementChild.textContent=nm(c);const b=el.lastElementChild;b.textContent=fmt(v);b.className=(c===cur().t&&!g.over?'act ':'')+(v<10000?'low':'');});}
+const pcv={p:1,n:3,b:3,r:5,q:9};
+function capInfo(){const cap={w:[],b:[]};for(let i=1;i<g.st.length;i++){const a0=g.st[i-1],b0=g.st[i],c=a0.t,o=c==='w'?'b':'w',cnt=s=>{const r={};for(const p of s.b){if(p!=='.'&&(o==='w')===(p<'a')){const k=p.toLowerCase();r[k]=(r[k]||0)+1;}}return r;},x=cnt(a0),y=cnt(b0);for(const k in x)if(k!=='k'&&(y[k]||0)<x[k])cap[c].push(k);}
+  for(const c in cap)cap[c].sort((x,y)=>pcv[y]-pcv[x]);let adv=0;for(const p of cur().b){if(p==='.')continue;const k=p.toLowerCase();if(k!=='k')adv+=p<'a'?pcv[k]:-pcv[k];}return{cap,adv};}
+function pname(c){return g.mode==='ai'?(c===g.hc?'あなた':(g.train?'コーチ':'Quiet AI')):g.mode==='online'?(g.names?g.names[c]:'相手'):(c==='w'?'白':'黒');}
+function pelo(c){if(g.mode==='ai')return 'Elo '+(c===g.hc?eloTxtF():g.elo);if(g.mode==='online'&&g.elos)return 'Elo '+g.elos[c];return '';}
+function clkUI(){if(!g)return;const on=g.tc&&g.tc[0],bot=g.flip?'b':'w',top=bot==='w'?'b':'w',ci=capInfo();
+  [['#ctop',top],['#cbot',bot]].forEach(([id,c])=>{const el=$(id),nl=el.querySelector('.nl'),ck=el.querySelector('.ck'),lead=(ci.adv>0&&c==='w')||(ci.adv<0&&c==='b');
+    nl.firstElementChild.textContent=pname(c);nl.lastElementChild.textContent=pelo(c);
+    el.querySelector('.cap').innerHTML=ci.cap[c].map(t=>`<span class="pc ${c==='w'?'b':'w'}">${pcs(t)}</span>`).join('')+(lead?`<em>+${Math.abs(ci.adv)}</em>`:'');
+    ck.hidden=!on;if(on){const v=clkLeft(c);ck.textContent=fmt(v);ck.className='ck '+(c===cur().t&&!g.over?'act ':'')+(v<10000?'low':'');}});}
 function hasMat(c){const r=cur().b.filter(p=>p!=='.'&&(c==='w'?p<'a':p>'a')&&p.toUpperCase()!=='K');return r.length>1||(r.length===1&&!'NnBb'.includes(r[0]));}
 function flag(t){const w=t==='w'?'b':'w';g.busy=false;if(hasMat(w)){g.over=`時間切れ:${w==='w'?'白':'黒'}の勝ちです`;g.res=w==='w'?'1-0':'0-1';}else{g.over='時間切れ。相手の駒が足りず、引き分けです';g.res='1/2-1/2';}play('end');recordCurrent();render();}
 setInterval(()=>{if(!g||!g.tc||!g.tc[0]||g.over)return;const t=cur().t;if(clkLeft(t)<=0){if(g.mode==='online'){if(!g.flg){g.flg=1;g.clk[t]=0;flag(t);netEnd(g.res,g.over);}return;}g.clk[t]=0;flag(t);return;}clkUI();},200);
@@ -377,16 +387,18 @@ const myColor=v=>NETC.uid===v.host?v.hc:(v.hc==='w'?'b':'w');
 function openOnlineTab(){$$('.pt').forEach(x=>x.classList.toggle('on',x.dataset.pt==='online'));$('#pt-local').hidden=true;$('#pt-online').hidden=false;onlineUI();}
 function onlineUI(){const w=rcode&&room&&room.status==='wait';$('#on-form').hidden=!!w;$('#on-wait').hidden=!w;if(w){$('#onc2').textContent=rcode;const t=room.tc&&room.tc.b?`${room.tc.b/60}分 + ${room.tc.i||0}秒`:'時間無制限';$('#onti').textContent=`${t} · あなたは${myColor(room)==='w'?'白':'黒'}`;}}
 async function onMake(){omsg('');const db=await netConn(),name=($('#onn').value||'あなた').slice(0,12),tc=tcOf(4);let hc=$('#onc').value;if(hc==='r')hc=Math.random()<.5?'w':'b';
-  for(let i=0;i<8;i++){const code=rcodeGen(),r=await db.tx('rooms/'+code,cur=>cur===null?{host:db.uid,hostName:name,hc,tc:{b:tc[0],i:tc[1]},created:db.now(),status:'wait',n:0}:undefined);
+  for(let i=0;i<8;i++){const code=rcodeGen(),r=await db.tx('rooms/'+code,cur=>cur===null?{host:db.uid,hostName:name,hostElo:eloTxtF(),hc,tc:{b:tc[0],i:tc[1]},created:db.now(),status:'wait',n:0}:undefined);
     if(r.committed&&r.value){rcode=code;savePtr();watchRoom();return;}}throw new Error('コードを作れませんでした。もう一度お試しください。');}
+const friendlyErr=e=>{const m=(e&&e.message)||String(e);if(/[\u3040-\u30ff\u4e00-\u9fff]/.test(m))return m;if(/permission/i.test(m))return 'この部屋には参加できません。コードを確認するか、満員・終了済みでないか確認してください。';if(/network|offline|unavailable|timeout/i.test(m))return '通信に失敗しました。接続を確認してください。';return '予期しないエラーが起きました。もう一度お試しください。';};
 async function onJoin(){omsg('');const code=$('#onj').value.trim().toUpperCase();if(!/^[A-HJ-NP-Z2-9]{6}$/.test(code))throw new Error('6文字のコードを入力してください。');const db=await netConn(),name=($('#onn').value||'ゲスト').slice(0,12);
-  const r=await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;if(cur.host===db.uid||cur.guest===db.uid)return undefined;if(cur.guest||cur.status!=='wait'||(cur.created&&db.now()-cur.created>7*864e5))return undefined;cur.guest=db.uid;cur.guestName=name;cur.status='play';cur.ts=db.now();return cur;}),v=r.value;
-  if(!v)throw new Error('その部屋は見つかりません。');if(v.host!==db.uid&&v.guest!==db.uid)throw new Error('その部屋は、すでに始まっているか、終了しています。');rcode=code;savePtr();watchRoom();}
+  const pre=await db.get('rooms/'+code);if(!pre)throw new Error('その部屋は見つかりません。コードをもう一度確認してください。');
+  const r=await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;if(cur.host===db.uid||cur.guest===db.uid)return undefined;if(cur.guest||cur.status!=='wait'||(cur.created&&db.now()-cur.created>7*864e5))return undefined;cur.guest=db.uid;cur.guestName=name;cur.guestElo=eloTxtF();cur.status='play';cur.ts=db.now();return cur;}),v=r.value;
+  if(!v)throw new Error('その部屋は見つかりません。コードをもう一度確認してください。');if(v.host!==db.uid&&v.guest!==db.uid)throw new Error('その部屋は、すでに始まっているか、終了しています。');rcode=code;savePtr();watchRoom();}
 function watchRoom(){if(runsub)runsub();runsub=NETC.on('rooms/'+rcode,onRoom);}
 function onRoom(v){if(v===null){roomGone();return;}room=v;if(v.status==='wait'){onlineUI();if($('#p-priv').hidden&&(!g||g.mode!=='online')){show('priv');openOnlineTab();}return;}
   if(!g||g.mode!=='online'||g.code!==rcode)startOnline(v);syncGame(v);}
 function roomGone(){room=null;if(g&&g.mode==='online'&&!g.over&&g.code===rcode){g.over='部屋が閉じられました';render();}rcode='';clearPtr();onlineUI();}
-function startOnline(v){const me=myColor(v);newGame('online',me,0,v.tc&&v.tc.b?[v.tc.b,v.tc.i||0]:null);g.code=rcode;const hn=v.hostName||'ホスト',gn=v.guestName||'ゲスト';g.names={w:v.hc==='w'?hn:gn,b:v.hc==='w'?gn:hn};}
+function startOnline(v){const me=myColor(v);newGame('online',me,0,v.tc&&v.tc.b?[v.tc.b,v.tc.i||0]:null);g.code=rcode;const hn=v.hostName||'ホスト',gn=v.guestName||'ゲスト';g.names={w:v.hc==='w'?hn:gn,b:v.hc==='w'?gn:hn};const he=v.hostElo||'?',ge=v.guestElo||'?';g.elos={w:v.hc==='w'?he:ge,b:v.hc==='w'?ge:he};}
 function rollbackTo(n){while(g.sans.length>n){const k=key(cur());g.reps[k]--;g.st.pop();g.sans.pop();}g.over='';g.last=null;g.sel=-1;g.nsv=0;g.saved=0;render();}
 function syncGame(v){if(!g||g.mode!=='online'||g.code!==rcode)return;const hs=toArr(v.h),mv=hs.map(x=>x.u);if(g.sans.length>mv.length)rollbackTo(mv.length);
   for(let i=g.sans.length;i<mv.length;i++){const m=E.fromUci(cur(),mv[i]);if(!m){$('#st').textContent='相手の手が正しくありません。';break;}doMove(m,false,true);}
@@ -406,7 +418,7 @@ $('#ofy').onclick=async()=>{$('#of').close();const db=NETC;try{await db.tx('room
   const hs=toArr(cur.h),reqW=(o.by===cur.host?cur.hc:(cur.hc==='w'?'b':'w'))==='w',k=((hs.length%2===1)===reqW)?1:2;if(hs.length<k)return undefined;hs.length-=k;cur.h=hs.length?hs:null;cur.n=hs.length;cur.ts=db.now();cur.offer=null;return cur;});}catch(e){}};
 $('#ofn').onclick=async()=>{$('#of').close();try{await NETC.update('rooms/'+g.code,{offer:null});}catch(e){}};
 async function onlineSaved(){if(g.nsv)return;g.nsv=1;recordCurrent();clearPtr();const db=NETC,code=g.code;try{await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;cur.saved=cur.saved||{};cur.saved[db.uid]=true;return Object.keys(cur.saved).length>=2?null:cur;});}catch(e){}}
-$('#onmk').onclick=()=>onMake().catch(e=>omsg(e.message));$('#onjb').onclick=()=>onJoin().catch(e=>omsg(e.message));
+$('#onmk').onclick=()=>onMake().catch(e=>omsg(friendlyErr(e)));$('#onjb').onclick=()=>onJoin().catch(e=>omsg(friendlyErr(e)));
 $('#onx').onclick=async()=>{if(runsub)runsub();runsub=null;try{if(room&&room.status==='wait'&&room.host===NETC.uid)await NETC.remove('rooms/'+rcode);}catch(e){}room=null;rcode='';clearPtr();onlineUI();};
 $('#oncp').onclick=async()=>{const u=location.origin+location.pathname+'?room='+rcode;try{await navigator.clipboard.writeText(u);$('#oncp').lastChild.textContent='コピーしました';}catch(e){omsg(u);}setTimeout(()=>{$('#oncp').lastChild.textContent='招待リンクをコピー';},1500);};
 function dlText(name,text){const u=URL.createObjectURL(new Blob([text],{type:'application/x-chess-pgn'})),l=document.createElement('a');l.href=u;l.download=name;l.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
