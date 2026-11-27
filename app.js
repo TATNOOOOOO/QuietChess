@@ -49,16 +49,17 @@ function render(last){
   $('#rk').innerHTML=(g.flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1]).map(n=>`<span>${n}</span>`).join('');
   $('#fl').innerHTML=(g.flip?'hgfedcba':'abcdefgh').split('').map(n=>`<span>${n}</span>`).join('');
   if(last)animMove(bd,g.flip,last,false);
-  let msg=g.over||(g.busy?'AIが考えています…':(g.mode==='ai'?'あなたの番です':(s.t==='w'?'白の番です':'黒の番です'))+(E.inCheck(s)?'(王手)':''));
+  let msg=g.over||(g.busy?'AIが考えています…':(g.mode==='ai'?'あなたの番です':g.mode==='online'?(s.t===g.hc?'あなたの番です':'相手の番です'):(s.t==='w'?'白の番です':'黒の番です'))+(E.inCheck(s)?'(王手)':''));
   $('#st').textContent=msg;
   $('#mv').innerHTML=g.sans.map((x,i)=>i%2?`<span>${x}</span>`:`<i>${i/2+1}.</i><span>${x}</span>`).join('');$('#mv').scrollTop=1e5;
-  $('#draw').hidden=g.mode!=='local'||!!g.over;$('#res').hidden=!!g.over;$('#undo').disabled=g.busy||g.sans.length<(g.mode==='ai'?(g.hc==='w'?2:3):1)&&true;
+  $('#draw').hidden=(g.mode!=='local'&&g.mode!=='online')||!!g.over;$('#res').hidden=!!g.over;$('#undo').disabled=g.busy||g.sans.length<(g.mode==='ai'?(g.hc==='w'?2:3):1)&&true;
   if(g.mode==='ai'&&!g.over&&g.sans.length===0)$('#undo').disabled=true;
-  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;$('#coach').hidden=!g.train;if(g.train&&g.va&&g.va.ply===g.sans.length)addBadge();clkUI();
+  $('#ckn').hidden=!(g.chk&&g.over);if(g.chk)$('#undo').disabled=true;$('#ana').hidden=$('#pgn').hidden=!(g.over&&g.sans.length);$('#coach').hidden=!g.train;if(g.train&&g.va&&g.va.ply===g.sans.length)addBadge();clkUI();
 }
-function doMove(m,na){const s=cur();clkMove(s.t);const cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
+function doMove(m,na,remote){const s=cur();clkMove(s.t);const cap=s.b[m.to]!=='.'||m.fl==='ep',san=E.san(s,m),ns=E.make(s,m);g.st.push(ns);g.sans.push(san);g.last=m;g.sel=-1;
   const n=rep();let r=E.status(ns);if(!r&&n>=3)r='repetition';const ck=E.inCheck(ns);
   if(r)finish(r);render(na?null:m);play(r?'end':ck?'check':cap?'capture':'move');
+  if(g.mode==='online'&&!remote)netPush(m);
   if(!r&&g.mode==='ai'&&ns.t!==g.hc){if(g.train)coachEval(s,m,ns,aiMove);else aiMove();}}
 function finish(r){const s=cur(),W=s.t==='w'?'黒':'白';
   g.over={checkmate:`詰み:${W}の勝ちです`,stalemate:'ステイルメイトで引き分けです',repetition:'同一局面が3回現れ、引き分けです',fifty:'50手ルールで引き分けです',insufficient:'駒が足りず、引き分けです',agreed:'合意により引き分けです'}[r]||r;g.res=r==='checkmate'?(s.t==='w'?'0-1':'1-0'):'1/2-1/2';recordCurrent();}
@@ -83,15 +84,15 @@ function attach(bd,c){
     addEventListener('pointermove',mvf);addEventListener('pointerup',up);addEventListener('pointercancel',up);};}
 function askPromo(c,cb,t){const pp=$('#pp');pp.innerHTML=c.map(m=>`<button data-p="${m.promo}"><span class="pc ${t==='w'?'w':'b'}">${pcs(m.promo)}</span></button>`).join('');$('#pm').showModal();
   pp.onclick=e=>{const b=e.target.closest('button');if(!b)return;$('#pm').close();cb(c.find(m=>m.promo===b.dataset.p));};}
-attach($('#bd'),{ok:()=>g&&!g.over&&!g.busy&&(g.mode!=='ai'||cur().t===g.hc),st:()=>cur(),get sel(){return g.sel},set sel(v){g.sel=v},paint:()=>render(),move:(m,na)=>doMove(m,na)});
+attach($('#bd'),{ok:()=>g&&!g.over&&!g.busy&&(g.mode==='local'||cur().t===g.hc),st:()=>cur(),get sel(){return g.sel},set sel(v){g.sel=v},paint:()=>render(),move:(m,na)=>doMove(m,na)});
 function ask(msg,cb){$('#cft').textContent=msg;const o=$('#cfo');o.className='dg';$('#cf').showModal();play('warn');o.onclick=()=>{$('#cf').close();cb();};}
 $$('dialog .x').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 $('#flip').onclick=()=>{g.flip=!g.flip;render();};
-$('#undo').onclick=()=>{if(g.busy||!g.sans.length)return;let n=1;if(g.mode==='ai'&&cur().t===g.hc)n=2;if(g.mode==='ai'&&g.over)n=cur().t===g.hc?2:1;
+$('#undo').onclick=()=>{if(g.busy||!g.sans.length)return;if(g.mode==='online'){netOffer('undo');return;}let n=1;if(g.mode==='ai'&&cur().t===g.hc)n=2;if(g.mode==='ai'&&g.over)n=cur().t===g.hc?2:1;
   for(let i=0;i<n&&g.sans.length;i++){const k=key(cur());g.reps[k]--;g.st.pop();g.sans.pop();if(g.clkH&&g.clkH.length)g.clk=g.clkH.pop();}g.ts=Date.now();g.over='';g.last=null;g.sel=-1;render();if(g.mode==='ai'&&cur().t!==g.hc)aiMove();};
-$('#res').onclick=()=>ask('投了しますか?',()=>{const s=cur(),loser=g.mode==='ai'?g.hc:s.t;g.res=loser==='w'?'0-1':'1-0';g.over=`投了:${loser==='w'?'黒':'白'}の勝ちです`;recordCurrent();play('end');render();});
-$('#draw').onclick=()=>ask('引き分けを提案し、合意しますか?(一台対局のため、相手の承諾をこの場で確認してください)',()=>{finish('agreed');play('end');render();});
-$('#new').onclick=()=>{const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
+$('#res').onclick=()=>ask('投了しますか?',()=>{const s=cur(),loser=(g.mode==='ai'||g.mode==='online')?g.hc:s.t;g.res=loser==='w'?'0-1':'1-0';g.over=`投了:${loser==='w'?'黒':'白'}の勝ちです`;recordCurrent();play('end');render();if(g.mode==='online')netEnd(g.res,g.over);});
+$('#draw').onclick=()=>g.mode==='online'?netOffer('draw'):ask('引き分けを提案し、合意しますか?(一台対局のため、相手の承諾をこの場で確認してください)',()=>{finish('agreed');play('end');render();});
+$('#new').onclick=()=>{if(g.mode==='online'){show('priv');openOnlineTab();return;}const m=g.mode==='ai'?'ai':'priv',go=()=>{recordCurrent();g=null;show(m);};if(!g.over)ask('いまの対局を終えて、設定画面に戻りますか?',go);else go();};
 /* panels */
 const TT={chk:'棋力チェック',home:'ホーム',train:'トレーニング',ai:'AI対局',tact:'タクティクス問題',priv:'プライベート対局',map:'学習マップ',rec:'対局の記録',set:'カスタマイズ'};
 const SOON={map:'テクニックを一つずつ、盤面で学べるマップを用意します。'};
@@ -99,7 +100,7 @@ function show(id){const pid=SOON[id]?'soon':id;$$('.pnl').forEach(p=>p.hidden=p.
  $$('.nv').forEach(b=>b.classList.toggle('on',b.dataset.tab===nav));$('#crumb').textContent=TT[nav];if(SOON[id]){$('#sn').textContent=TT[id];$('#sd').textContent=SOON[id];}
  if(id==='rec')listUI();if(id==='tact')tactUI();if(id==='train')tlUI();if(id==='chk')chkUI();if(id==='set')$('#ckcur').textContent='現在: '+S.elo+' Elo'+(S.meas?'(測定済み)':'(未測定の仮の値)')+'。測定しても、学習状況・棋譜は消えません。';if(id==='ai'){$('#elo').value=S.elo;lvUI();}$('#back').hidden=!g||id==='game'||id==='rev';$('.side').classList.remove('open');scrollTo(0,0);}
 $$('.nv').forEach(b=>b.onclick=()=>show(b.dataset.tab));$$('[data-go]').forEach(b=>b.onclick=()=>show(b.dataset.go));$('#back').onclick=()=>show('game');$('#mb').onclick=e=>{e.stopPropagation();$('.side').classList.toggle('open');};document.addEventListener('click',e=>{if(!e.target.closest('.side'))$('.side').classList.remove('open');});
-$$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';});
+$$('.pt').forEach(b=>b.onclick=()=>{$$('.pt').forEach(x=>x.classList.toggle('on',x===b));$('#pt-local').hidden=b.dataset.pt!=='local';$('#pt-online').hidden=b.dataset.pt!=='online';onlineUI();});
 const LV=[['Sweet','ゆったり',-70],['Easy','やさしく',-30],['Normal','いつもどおり',0],['Hard','少し挑戦',30],['Bitter','しっかり挑戦',70],['Custom','自分で決める',null]];
 let lv=2;
 function lvUI(){$('#lv').innerHTML=LV.map((l,i)=>`<button class="${i===lv?'on':''}" data-l="${i}" title="${l[2]===null?'相手のEloを自分で決めます':'相手の目標Eloが、あなたより '+(l[2]>0?'+':'')+l[2]+' です'}"><b>${l[0]}</b><small>${l[1]}</small><small>${l[2]===null?'自由に設定':(l[2]>0?'+':'')+l[2]+' Elo'}</small></button>`).join('');
@@ -117,8 +118,8 @@ $('#vol').onchange=()=>play('move');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const GK='qcg1';let GS=[];try{GS=JSON.parse(localStorage.getItem(GK)||'[]')}catch(e){}
 const saveG=()=>{try{localStorage.setItem(GK,JSON.stringify(GS.slice(0,60)))}catch(e){}};
-function recordCurrent(){if(g&&g.chk&&g.over&&g.res&&g.res!=='*'&&!g.chkDone){g.chkDone=1;chkGameEnd();}if(!g||!g.sans.length||g.saved)return;g.saved=1;const ai=g.mode==='ai';GS.unshift({id:Date.now(),date:new Date().toISOString().slice(0,10),mode:g.train?'train':g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
-function listUI(){$('#gl').innerHTML=GS.length?GS.map(r=>`<div class="card gl"><div><b>${esc(r.title)}</b><br><small>${{ai:'AI対局',train:'トレーニング',local:'一台対局',pgn:'読込棋譜'}[r.mode]||''} · ${esc(r.date)} · ${r.sans.length}手</small></div><span class="sp"></span><button data-v="${r.id}" data-ic="play">振り返る</button><button class="dg" data-d="${r.id}" data-ic="trash">削除</button></div>`).join(''):'<div class="card">まだ記録がありません。対局を終えると、ここに保存されます。</div>';
+function recordCurrent(){if(g&&g.chk&&g.over&&g.res&&g.res!=='*'&&!g.chkDone){g.chkDone=1;chkGameEnd();}if(!g||!g.sans.length||g.saved)return;g.saved=1;g.rid=Date.now();const ai=g.mode==='ai';GS.unshift({id:g.rid,date:new Date().toISOString().slice(0,10),mode:g.train?'train':g.mode,title:g.over||'中断',res:g.res||'*',sans:g.sans.slice(),white:g.names?g.names.w:ai?(g.hc==='w'?'あなた':'Quiet AI '+g.elo):'白',black:g.names?g.names.b:ai?(g.hc==='b'?'あなた':'Quiet AI '+g.elo):'黒'});saveG();}
+function listUI(){$('#gl').innerHTML=GS.length?GS.map(r=>`<div class="card gl"><div><b>${esc(r.title)}</b><br><small>${{ai:'AI対局',online:'プライベート対局',train:'トレーニング',local:'一台対局',pgn:'読込棋譜'}[r.mode]||''} · ${esc(r.date)} · ${r.sans.length}手</small></div><span class="sp"></span><button data-v="${r.id}" data-ic="play">振り返る</button><button class="dg" data-d="${r.id}" data-ic="trash">削除</button></div>`).join(''):'<div class="card">まだ記録がありません。対局を終えると、ここに保存されます。</div>';
   $$('#gl [data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));}
 $('#gl').onclick=e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.v)openRev(+b.dataset.v);if(b.dataset.d)ask('この記録を削除しますか?(元に戻せません)',()=>{GS=GS.filter(x=>x.id!==+b.dataset.d);saveG();listUI();});};
 $('#impb').onclick=()=>{$('#ie').textContent='';$('#imp').showModal();};
@@ -323,17 +324,17 @@ attach($('#wbd'),{ok:()=>wv&&wv.guide===1&&wv.L&&wv.L[wv.tab].st[wv.k]&&wv.k<wv.
 /* clock + opening book */
 const TCB=[[0,'無制限'],[60,'1分'],[180,'3分'],[300,'5分'],[600,'10分'],[900,'15分']],TCI=[[0,'なし'],[2,'2秒'],[5,'5秒'],[10,'10秒']];
 S.tcb=S.tcb||0;S.tci=S.tci||0;
-[1,2,3].forEach(n=>{$('#tcb'+n).innerHTML=TCB.map(x=>`<option value="${x[0]}" ${x[0]===S.tcb?'selected':''}>${x[1]}</option>`).join('');$('#tci'+n).innerHTML=TCI.map(x=>`<option value="${x[0]}" ${x[0]===S.tci?'selected':''}>${x[1]}</option>`).join('');
-  $('#tcb'+n).onchange=$('#tci'+n).onchange=()=>{S.tcb=+$('#tcb'+n).value;S.tci=+$('#tci'+n).value;save();[1,2,3].forEach(m=>{$('#tcb'+m).value=S.tcb;$('#tci'+m).value=S.tci;});};});
+[1,2,3,4].forEach(n=>{$('#tcb'+n).innerHTML=TCB.map(x=>`<option value="${x[0]}" ${x[0]===S.tcb?'selected':''}>${x[1]}</option>`).join('');$('#tci'+n).innerHTML=TCI.map(x=>`<option value="${x[0]}" ${x[0]===S.tci?'selected':''}>${x[1]}</option>`).join('');
+  $('#tcb'+n).onchange=$('#tci'+n).onchange=()=>{S.tcb=+$('#tcb'+n).value;S.tci=+$('#tci'+n).value;save();[1,2,3,4].forEach(m=>{$('#tcb'+m).value=S.tcb;$('#tci'+m).value=S.tci;});};});
 function tcOf(n){return[+$('#tcb'+n).value,+$('#tci'+n).value];}
-function clkMove(t){if(g.tc&&g.tc[0]&&g.ts){const now=Date.now();g.clkH.push({w:g.clk.w,b:g.clk.b});g.clk[t]=Math.max(0,g.clk[t]-(now-g.ts))+g.tc[1]*1000;g.ts=now;}}
+function clkMove(t){if(g.mode!=='online'&&g.tc&&g.tc[0]&&g.ts){const now=Date.now();g.clkH.push({w:g.clk.w,b:g.clk.b});g.clk[t]=Math.max(0,g.clk[t]-(now-g.ts))+g.tc[1]*1000;g.ts=now;}}
 const fmt=ms=>{ms=Math.max(0,ms);const s=ms/1000;return s<20?s.toFixed(1):Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');};
 function clkLeft(c){const t=cur().t;return g.clk[c]-(c===t&&!g.over&&g.ts?Date.now()-g.ts:0);}
-function clkUI(){const on=g&&g.tc&&g.tc[0];$('#ctop').hidden=$('#cbot').hidden=!on;if(!on)return;const bot=g.flip?'b':'w',top=bot==='w'?'b':'w',nm=c=>g.mode==='ai'?(c===g.hc?'あなた':(g.train?'コーチ':'Quiet AI')):(c==='w'?'白':'黒');
+function clkUI(){const on=g&&g.tc&&g.tc[0];$('#ctop').hidden=$('#cbot').hidden=!on;if(!on)return;const bot=g.flip?'b':'w',top=bot==='w'?'b':'w',nm=c=>g.mode==='ai'?(c===g.hc?'あなた':(g.train?'コーチ':'Quiet AI')):(g.names?g.names[c]:(c==='w'?'白':'黒'));
   [['#ctop',top],['#cbot',bot]].forEach(([id,c])=>{const el=$(id),v=clkLeft(c);el.firstElementChild.textContent=nm(c);const b=el.lastElementChild;b.textContent=fmt(v);b.className=(c===cur().t&&!g.over?'act ':'')+(v<10000?'low':'');});}
 function hasMat(c){const r=cur().b.filter(p=>p!=='.'&&(c==='w'?p<'a':p>'a')&&p.toUpperCase()!=='K');return r.length>1||(r.length===1&&!'NnBb'.includes(r[0]));}
 function flag(t){const w=t==='w'?'b':'w';g.busy=false;if(hasMat(w)){g.over=`時間切れ:${w==='w'?'白':'黒'}の勝ちです`;g.res=w==='w'?'1-0':'0-1';}else{g.over='時間切れ。相手の駒が足りず、引き分けです';g.res='1/2-1/2';}play('end');recordCurrent();render();}
-setInterval(()=>{if(!g||!g.tc||!g.tc[0]||g.over)return;const t=cur().t;if(clkLeft(t)<=0){g.clk[t]=0;flag(t);return;}clkUI();},200);
+setInterval(()=>{if(!g||!g.tc||!g.tc[0]||g.over)return;const t=cur().t;if(clkLeft(t)<=0){if(g.mode==='online'){if(!g.flg){g.flg=1;g.clk[t]=0;flag(t);netEnd(g.res,g.over);}return;}g.clk[t]=0;flag(t);return;}clkUI();},200);
 function bookMove(s,gg,e){const mp=Math.round(Math.min(12,Math.max(2,e/120))),san=QCBook.pick(gg.sans,mp);return san?E.legal(s).find(m=>E.san(s,m).replace(/[+#]/g,'')===san)||null:null;}
 /* settings: custom colors, piece style, fonts, PWA */
 S.cc=S.cc||{};S.ps=S.ps||'classic';S.font=S.font||'yu';
@@ -366,5 +367,52 @@ $('#fdel').onclick=()=>ask('読み込んだフォントを削除しますか?',a
 if('serviceWorker' in navigator){const okp=location.protocol==='https:'||((location.hostname==='localhost'||location.hostname==='127.0.0.1')&&/[?&]sw=1/.test(location.search));if(okp)navigator.serviceWorker.register('sw.js').catch(()=>{});}
 let ipr=null;addEventListener('beforeinstallprompt',e=>{e.preventDefault();ipr=e;$('#inst').hidden=false;});$('#inst').onclick=()=>{if(ipr){ipr.prompt();ipr=null;$('#inst').hidden=true;}};
 $('#upd').onclick=async()=>{try{if('caches' in window)await Promise.all((await caches.keys()).map(k=>caches.delete(k)));if('serviceWorker' in navigator)await Promise.all((await navigator.serviceWorker.getRegistrations()).map(r=>r.update()));}catch(e){}location.reload();};
+/* online match (private rooms) */
+const toArr=v=>!v?[]:Array.isArray(v)?v.filter(x=>x!=null):Object.keys(v).sort((x,y)=>x-y).map(k=>v[k]);
+let NETC=null,room=null,rcode='',runsub=null;const CODEA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const rcodeGen=()=>Array.from({length:6},()=>CODEA[Math.random()*CODEA.length|0]).join(''),omsg=t=>{$('#onm').textContent=t||'';};
+const savePtr=()=>{try{localStorage.setItem('qcroom',JSON.stringify({code:rcode}))}catch(e){}},clearPtr=()=>{try{localStorage.removeItem('qcroom')}catch(e){}};
+async function netConn(){if(NETC)return NETC;const cfg=window.QC_FIREBASE,mock=/[?&]mock=1/.test(location.search);if(!mock&&(!cfg||!cfg.databaseURL))throw new Error('オンライン対局の設定(databaseURL)が、まだ入っていません。firebase-config.js を確認してください。');NETC=await QCNet.connect({mock,cfg});return NETC;}
+const myColor=v=>NETC.uid===v.host?v.hc:(v.hc==='w'?'b':'w');
+function openOnlineTab(){$$('.pt').forEach(x=>x.classList.toggle('on',x.dataset.pt==='online'));$('#pt-local').hidden=true;$('#pt-online').hidden=false;onlineUI();}
+function onlineUI(){const w=rcode&&room&&room.status==='wait';$('#on-form').hidden=!!w;$('#on-wait').hidden=!w;if(w){$('#onc2').textContent=rcode;const t=room.tc&&room.tc.b?`${room.tc.b/60}分 + ${room.tc.i||0}秒`:'時間無制限';$('#onti').textContent=`${t} · あなたは${myColor(room)==='w'?'白':'黒'}`;}}
+async function onMake(){omsg('');const db=await netConn(),name=($('#onn').value||'あなた').slice(0,12),tc=tcOf(4);let hc=$('#onc').value;if(hc==='r')hc=Math.random()<.5?'w':'b';
+  for(let i=0;i<8;i++){const code=rcodeGen(),r=await db.tx('rooms/'+code,cur=>cur===null?{host:db.uid,hostName:name,hc,tc:{b:tc[0],i:tc[1]},created:db.now(),status:'wait',n:0}:undefined);
+    if(r.committed&&r.value){rcode=code;savePtr();watchRoom();return;}}throw new Error('コードを作れませんでした。もう一度お試しください。');}
+async function onJoin(){omsg('');const code=$('#onj').value.trim().toUpperCase();if(!/^[A-HJ-NP-Z2-9]{6}$/.test(code))throw new Error('6文字のコードを入力してください。');const db=await netConn(),name=($('#onn').value||'ゲスト').slice(0,12);
+  const r=await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;if(cur.host===db.uid||cur.guest===db.uid)return undefined;if(cur.guest||cur.status!=='wait'||(cur.created&&db.now()-cur.created>7*864e5))return undefined;cur.guest=db.uid;cur.guestName=name;cur.status='play';cur.ts=db.now();return cur;}),v=r.value;
+  if(!v)throw new Error('その部屋は見つかりません。');if(v.host!==db.uid&&v.guest!==db.uid)throw new Error('その部屋は、すでに始まっているか、終了しています。');rcode=code;savePtr();watchRoom();}
+function watchRoom(){if(runsub)runsub();runsub=NETC.on('rooms/'+rcode,onRoom);}
+function onRoom(v){if(v===null){roomGone();return;}room=v;if(v.status==='wait'){onlineUI();if($('#p-priv').hidden&&(!g||g.mode!=='online')){show('priv');openOnlineTab();}return;}
+  if(!g||g.mode!=='online'||g.code!==rcode)startOnline(v);syncGame(v);}
+function roomGone(){room=null;if(g&&g.mode==='online'&&!g.over&&g.code===rcode){g.over='部屋が閉じられました';render();}rcode='';clearPtr();onlineUI();}
+function startOnline(v){const me=myColor(v);newGame('online',me,0,v.tc&&v.tc.b?[v.tc.b,v.tc.i||0]:null);g.code=rcode;const hn=v.hostName||'ホスト',gn=v.guestName||'ゲスト';g.names={w:v.hc==='w'?hn:gn,b:v.hc==='w'?gn:hn};}
+function rollbackTo(n){while(g.sans.length>n){const k=key(cur());g.reps[k]--;g.st.pop();g.sans.pop();}g.over='';g.last=null;g.sel=-1;g.nsv=0;g.saved=0;render();}
+function syncGame(v){if(!g||g.mode!=='online'||g.code!==rcode)return;const hs=toArr(v.h),mv=hs.map(x=>x.u);if(g.sans.length>mv.length)rollbackTo(mv.length);
+  for(let i=g.sans.length;i<mv.length;i++){const m=E.fromUci(cur(),mv[i]);if(!m){$('#st').textContent='相手の手が正しくありません。';break;}doMove(m,false,true);}
+  if(g.tc&&g.tc[0]){const l=hs.length?hs[hs.length-1]:null;g.clk={w:l?l.w:g.tc[0]*1000,b:l?l.b:g.tc[0]*1000};g.ts=(v.ts||NETC.now())-(NETC.now()-Date.now());g.flg=0;}
+  if(v.status==='over'&&!g.over){g.over=v.reason||'対局が終了しました';g.res=v.result||'*';play('end');render();}
+  if(v.status==='over'&&g.over)onlineSaved();offerUI(v);clkUI();}
+async function netPush(m){const db=NETC,code=g.code,me=g.hc,u=E.uci(m),k=g.sans.length-1,over=g.over?{result:g.res||'*',reason:g.over}:null;
+  try{await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;if(cur.status!=='play')return undefined;const hs=toArr(cur.h);if(hs.length!==k||(k%2===0?'w':'b')!==me)return undefined;
+    const l=hs.length?hs[hs.length-1]:null,c={w:l?l.w:cur.tc.b*1000,b:l?l.b:cur.tc.b*1000};if(cur.tc.b){c[me]=Math.max(0,c[me]-Math.max(0,db.now()-(cur.ts||db.now())))+(cur.tc.i||0)*1000;}
+    hs.push({u,w:Math.round(c.w),b:Math.round(c.b)});cur.h=hs;cur.n=hs.length;cur.ts=db.now();cur.offer=null;if(over){cur.status='over';cur.result=over.result;cur.reason=over.reason;}return cur;});}
+  catch(e){$('#st').textContent='通信に失敗しました。接続を確認してください。';}}
+async function netEnd(res,text){try{await NETC.tx('rooms/'+g.code,cur=>{if(cur===null)return cur;if(cur.status!=='play')return undefined;cur.status='over';cur.result=res;cur.reason=text;cur.offer=null;return cur;});}catch(e){}}
+async function netOffer(type){if(!g||g.over)return;try{await NETC.update('rooms/'+g.code,{offer:{type,by:NETC.uid,n:g.sans.length,t:NETC.now()}});$('#st').textContent=(type==='draw'?'引き分けを':'待ったを')+'提案しました。';}catch(e){$('#st').textContent='通信に失敗しました。';}}
+function offerUI(v){const o=v.offer;if(!o){g.offerSeen=0;if($('#of').open)$('#of').close();return;}if(o.by===NETC.uid)return;if(g.offerSeen===o.t||g.over)return;g.offerSeen=o.t;$('#oft').textContent=o.type==='draw'?'相手が、引き分けを提案しました。':'相手が、待ったを提案しました。';$('#of').showModal();play('warn');}
+$('#ofy').onclick=async()=>{$('#of').close();const db=NETC;try{await db.tx('rooms/'+g.code,cur=>{if(cur===null)return cur;if(cur.status!=='play'||!cur.offer||cur.offer.by===db.uid)return undefined;const o=cur.offer;
+  if(o.type==='draw'){cur.status='over';cur.result='1/2-1/2';cur.reason='合意により引き分けです';cur.offer=null;return cur;}
+  const hs=toArr(cur.h),reqW=(o.by===cur.host?cur.hc:(cur.hc==='w'?'b':'w'))==='w',k=((hs.length%2===1)===reqW)?1:2;if(hs.length<k)return undefined;hs.length-=k;cur.h=hs.length?hs:null;cur.n=hs.length;cur.ts=db.now();cur.offer=null;return cur;});}catch(e){}};
+$('#ofn').onclick=async()=>{$('#of').close();try{await NETC.update('rooms/'+g.code,{offer:null});}catch(e){}};
+async function onlineSaved(){if(g.nsv)return;g.nsv=1;recordCurrent();clearPtr();const db=NETC,code=g.code;try{await db.tx('rooms/'+code,cur=>{if(cur===null)return cur;cur.saved=cur.saved||{};cur.saved[db.uid]=true;return Object.keys(cur.saved).length>=2?null:cur;});}catch(e){}}
+$('#onmk').onclick=()=>onMake().catch(e=>omsg(e.message));$('#onjb').onclick=()=>onJoin().catch(e=>omsg(e.message));
+$('#onx').onclick=async()=>{if(runsub)runsub();runsub=null;try{if(room&&room.status==='wait'&&room.host===NETC.uid)await NETC.remove('rooms/'+rcode);}catch(e){}room=null;rcode='';clearPtr();onlineUI();};
+$('#oncp').onclick=async()=>{const u=location.origin+location.pathname+'?room='+rcode;try{await navigator.clipboard.writeText(u);$('#oncp').lastChild.textContent='コピーしました';}catch(e){omsg(u);}setTimeout(()=>{$('#oncp').lastChild.textContent='招待リンクをコピー';},1500);};
+function dlText(name,text){const u=URL.createObjectURL(new Blob([text],{type:'application/x-chess-pgn'})),l=document.createElement('a');l.href=u;l.download=name;l.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+$('#ana').onclick=()=>{recordCurrent();if(g.rid)openRev(g.rid);};
+$('#pgn').onclick=()=>{const ai=g.mode==='ai',w=g.names?g.names.w:(ai?(g.hc==='w'?'あなた':'Quiet AI'):'白'),b=g.names?g.names.b:(ai?(g.hc==='b'?'あなた':'Quiet AI'):'黒');dlText('quietchess_'+ymd(new Date())+'.pgn',QCPGN.toPGN({sans:g.sans,result:g.res||'*',white:w,black:b,date:ymd(new Date())}));};
+(async()=>{let p=null;try{p=JSON.parse(localStorage.getItem('qcroom')||'null')}catch(e){}const q=/[?&]room=([A-Za-z2-9]{6})/.exec(location.search);if(q){$('#onj').value=q[1].toUpperCase();setTimeout(()=>{show('priv');openOnlineTab();},0);}
+  if(!p||!p.code)return;try{const db=await netConn(),v=await db.get('rooms/'+p.code);if(!v||v.status==='over'||(v.created&&db.now()-v.created>7*864e5)||(v.host!==db.uid&&v.guest!==db.uid)){clearPtr();return;}rcode=p.code;watchRoom();}catch(e){}})();
 psUI();applyCC();thUI();lvUI();show('home');
 })();
