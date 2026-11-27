@@ -23,4 +23,24 @@ async function analyze(states,moves,eng,o){o=o||{};const depth=o.depth||12,ev=[]
   else if(same&&gap>=12&&bw<97)cls='great';
   const bm=e[0].uci?E.fromUci(s,e[0].uci):null;
   return {cls,loss:Math.round(loss*10)/10,best:e[0].uci,bestSan:bm?E.san(s,bm):'',cp:sc(e[0]),bestPV:e[0].pv||[],playedPV:ev[i+1][0].pv||[]};});}
-const api={analyze,uciEngine,win};if(typeof module!=='undefined')module.exports=api;else root.QCAN=api;})(this);
+
+/* "flow" explanation: what the move allows, and what that makes possible */
+const PN={p:'ポーン',n:'ナイト',b:'ビショップ',r:'ルーク',q:'クイーン',k:'キング'},pn=p=>PN[p.toLowerCase()],VAL={p:1,n:3,b:3,r:5,q:9,k:0};
+const mat=s=>{let v=0;for(const p of s.b){if(p==='.')continue;const x=VAL[p.toLowerCase()];v+=p<'a'?x:-x;}return v;};
+function plyInfo(s,m){const ns=E.make(s,m),me=s.t,opp=me==='w'?'b':'w',san=E.san(s,m),cap=s.b[m.to]!=='.'?s.b[m.to]:(m.fl==='ep'?(me==='w'?'p':'P'):null),tags=[];
+  if(E.status(ns)==='checkmate')return{san,txt:'チェックメイト',cap,mate:1};
+  if(cap)tags.push(pn(cap)+'を取る');if(m.promo)tags.push(pn(m.promo)+'に成る');if(m.fl==='oo'||m.fl==='ooo')tags.push('キャスリング');if(E.inCheck(ns))tags.push('王手');
+  const ns2=Object.assign({},ns,{t:me,ep:-1}),pv=VAL[ns.b[m.to].toLowerCase()],tg=E.legal(ns2).filter(x=>x.from===m.to&&ns.b[x.to]!=='.'&&ns.b[x.to].toUpperCase()!=='K').map(x=>({p:ns.b[x.to],sq:x.to}));
+  const worth=tg.filter(t=>VAL[t.p.toLowerCase()]>pv||!E.attacked(ns.b,t.sq,opp));
+  if(E.inCheck(ns)&&worth.length>=1){const i=tags.indexOf('王手');if(i>=0)tags[i]=`王手しながら${pn(worth[0].p)}も狙う(フォーク)`;}else if(worth.length>=2)tags.push(`${pn(worth[0].p)}と${pn(worth[1].p)}の両方を狙う(フォーク)`);else if(worth.length===1&&!cap)tags.push(pn(worth[0].p)+'を狙う');
+  return{san,txt:tags.join('、'),cap};}
+function line(s0,ucis,n){const st=[s0],mv=[],info=[];let s=s0;for(const u of ucis.slice(0,n)){const m=E.fromUci(s,u);if(!m)break;info.push(plyInfo(s,m));mv.push(m);s=E.make(s,m);st.push(s);}return{st,mv,info};}
+const steps=L=>L.info.map((x,i)=>({k:i+1,who:i%2===0?'あなた':'相手',text:x.san+(x.txt?'('+x.txt+')':'')}));
+const mv2=x=>x.san+(x.txt?'('+x.txt+')':'');
+function result(L,me){const mateAt=L.info.findIndex(x=>x.mate);if(mateAt>=0)return mateAt%2===1?'そのまま、詰まされます。':'チェックメイトできます。';
+  const k=Math.min(L.st.length-1,4),d=(mat(L.st[k])-mat(L.st[0]))*(me==='w'?1:-1);return d<0?`この流れで、あなたは約${-d}点分の駒損になります。`:d>0?`この流れで、あなたは約${d}点分得をします。`:'';}
+function flow(s0,m,an){const me=s0.t,P=line(s0,[E.uci(m)].concat(an.playedPV||[]),6),B=an.best?line(s0,an.bestPV&&an.bestPV.length?an.bestPV:[an.best],6):null;
+  let sp='';const p1=P.info[1];if(p1&&p1.txt){sp=`この手を打つと、相手に ${mv2(p1)} を許してしまいます。`;const o2=P.info[3];if(o2&&o2.txt&&!P.info.some(x=>x.mate))sp+=`そのあと、相手は ${mv2(o2)} ができるようになります。`;}
+  const rp=result(P,me);let sb='';if(B&&B.info[0])sb=`代わりに ${mv2(B.info[0])} と指せば、`+(B.info.some(x=>x.mate)&&B.info.findIndex(x=>x.mate)%2===0?'チェックメイトできます。':(result(B,me)||'形勢がよくなります。'));
+  return{playedSteps:steps(P),bestSteps:B?steps(B):[],sumPlayed:sp,resPlayed:rp,sumBest:sb,short:(sp+' '+rp).trim()};}
+const api={analyze,uciEngine,win,flow,plyInfo};if(typeof module!=='undefined')module.exports=api;else root.QCAN=api;})(this);
