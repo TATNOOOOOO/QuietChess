@@ -42,5 +42,10 @@ function result(L,me){const mateAt=L.info.findIndex(x=>x.mate);if(mateAt>=0)retu
 function flow(s0,m,an){const me=s0.t,P=line(s0,[E.uci(m)].concat(an.playedPV||[]),6),B=an.best?line(s0,an.bestPV&&an.bestPV.length?an.bestPV:[an.best],6):null;
   let sp='';const p1=P.info[1];if(p1&&p1.txt){sp=`この手を打つと、相手に ${mv2(p1)} を許してしまいます。`;const o2=P.info[3];if(o2&&o2.txt&&!P.info.some(x=>x.mate))sp+=`そのあと、相手は ${mv2(o2)} ができるようになります。`;}
   const rp=result(P,me);let sb='';if(B&&B.info[0])sb=`代わりに ${mv2(B.info[0])} と指せば、`+(B.info.some(x=>x.mate)&&B.info.findIndex(x=>x.mate)%2===0?'チェックメイトできます。':(result(B,me)||'形勢がよくなります。'));
-  return{playedSteps:steps(P),bestSteps:B?steps(B):[],sumPlayed:sp,resPlayed:rp,sumBest:sb,short:(sp+' '+rp).trim()};}
+  const k4=Math.min(P.st.length-1,4),d4=(mat(P.st[k4])-mat(P.st[0]))*(me==='w'?1:-1),i1=P.info[1];let alert='';
+  if(P.info.some((x,i)=>x.mate&&i%2===1))alert='メイトを許しています(相手に詰まされます)。';
+  else if(B&&B.info.some((x,i)=>x.mate&&i%2===0))alert='あなたには、チェックメイトの手がありました。';
+  else if(i1&&i1.cap&&i1.cap.toUpperCase()==='Q')alert='クイーンを取られる形です。';
+  else if(i1&&i1.cap&&d4<=-3)alert='この流れで、駒をただ取りされる形です。';
+  return{playedSteps:steps(P),bestSteps:B?steps(B):[],sumPlayed:sp,resPlayed:rp,sumBest:sb,short:(sp+' '+rp).trim(),alert,bad:P.mv[1]?{from:P.mv[1].from,to:P.mv[1].to,cap:!!(i1&&i1.cap)}:null,best:B&&B.mv[0]?{from:B.mv[0].from,to:B.mv[0].to}:null};}
 const api={analyze,uciEngine,win,flow,plyInfo};if(typeof module!=='undefined')module.exports=api;else root.QCAN=api;})(this);
